@@ -27,11 +27,14 @@ sketch through OpenAI's image API in one of 7 art styles.
 
 - `server.js` — Express server. Serves the frontend and exposes
   `POST /api/render`, the only place the OpenAI key is used (never sent to
-  the browser). It forwards the drawing + chosen style to `images.edit`
-  (`gpt-image-1`) and returns the result as base64.
+  the browser). It forwards the drawing + chosen style to `images.edit`,
+  using either `gpt-image-1` (1024x1024, fast) or `gpt-image-2` (2048x2048,
+  `quality: "high"`, slower) depending on the "Render quality" toggle the
+  user picks, and returns the result as base64.
 - `public/js/canvas.js` — the drawing engine (pointer events for
-  mouse/touch/stylus, undo history, fixed 1024x1024 internal resolution so
-  no rescaling is needed before sending to the API).
+  mouse/touch/stylus, undo history, fixed 1024x1024 internal drawing
+  resolution — independent of the higher-resolution output requested from
+  the API).
 - `public/js/brushes.js` — the 12 brush renderers.
 - `public/js/zoom.js` — canvas zoom (+/- buttons, wheel, pinch) and
   two-finger pan.

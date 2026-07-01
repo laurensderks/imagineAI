@@ -3,7 +3,9 @@
 // This is the ONLY place the OpenAI API key is used. The browser never sees it.
 // The frontend posts the drawing as a base64 PNG + a chosen style id to
 // POST /api/render, and this server forwards an image-edit request to OpenAI's
-// Images API (gpt-image-1), then returns the rendered image back as base64.
+// Images API — either the fast gpt-image-1 pass (1024x1024) or the slower
+// high-quality gpt-image-2 pass (2048x2048), depending on the user's choice —
+// then returns the rendered image back as base64.
 
 const path = require('path');
 const express = require('express');
@@ -175,9 +177,16 @@ const STYLE_PROMPTS = Object.fromEntries(
   Object.entries(STYLE_DETAILS).map(([id, detail]) => [id, buildStylePrompt(detail)])
 );
 
+// Two render engines the user can pick between: a quick lower-res pass for
+// iterating, and a slower true-2K high-quality pass for a final artwork.
+const RENDER_ENGINES = {
+  fast: { model: 'gpt-image-1', size: '1024x1024' },
+  quality: { model: 'gpt-image-2', size: '2048x2048', quality: 'high' },
+};
+
 app.post('/api/render', async (req, res) => {
   try {
-    const { imageBase64, style, instructions } = req.body || {};
+    const { imageBase64, style, instructions, engine } = req.body || {};
 
     if (!imageBase64 || typeof imageBase64 !== 'string') {
       return res.status(400).json({ error: 'Missing "imageBase64" in request body.' });
@@ -186,6 +195,7 @@ app.post('/api/render', async (req, res) => {
     if (!prompt) {
       return res.status(400).json({ error: `Unknown or missing render style: "${style}".` });
     }
+    const engineConfig = RENDER_ENGINES[engine] || RENDER_ENGINES.fast;
 
     // Optional free-text guidance from the user, layered on top of the style prompt.
     if (typeof instructions === 'string' && instructions.trim()) {
@@ -212,10 +222,9 @@ app.post('/api/render', async (req, res) => {
     const imageFile = await toFile(buffer, 'drawing.png', { type: 'image/png' });
 
     const result = await client.images.edit({
-      model: 'gpt-image-1',
       image: imageFile,
       prompt,
-      size: '1024x1024',
+      ...engineConfig,
     });
 
     const rendered = result.data && result.data[0];

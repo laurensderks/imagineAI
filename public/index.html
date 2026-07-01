@@ -116,6 +116,20 @@
           ></textarea>
         </section>
 
+        <section class="panel-section">
+          <h3>Render quality</h3>
+          <div class="engine-toggle" id="engineToggle">
+            <button class="engine-btn active" data-engine="fast" type="button">
+              <span class="engine-title">Fast</span>
+              <span class="engine-desc">Quicker, standard resolution</span>
+            </button>
+            <button class="engine-btn" data-engine="quality" type="button">
+              <span class="engine-title">High-Res</span>
+              <span class="engine-desc">Sharper 2K detail, slower</span>
+            </button>
+          </div>
+        </section>
+
         <button class="render-btn" id="renderBtn">
           <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 10l-6.6 1.4L12 18l-1.4-6.6L4 10l6.6-1.4z"/></svg>
           <span>Render</span>
@@ -149,6 +163,7 @@
           <div class="loading-state" id="loadingState">
             <div class="spinner"></div>
             <p>Rendering your masterpiece…</p>
+            <p class="loading-substext" id="loadingSubtext">This should only take a few seconds.</p>
           </div>
           <img id="renderedPreview" alt="Rendered artwork" hidden />
           <div class="error-state" id="errorState" hidden>

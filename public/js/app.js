@@ -181,6 +181,7 @@
 
   // ---- state --------------------------------------------------------
   let selectedStyle = null;
+  let selectedEngine = 'fast';
 
   // ---- canvas ---------------------------------------------------------
   const canvasEl = document.getElementById('drawCanvas');
@@ -312,6 +313,20 @@
     styleGrid.appendChild(card);
   });
 
+  // ---- render engine toggle (fast gpt-image-1 vs high-res gpt-image-2) --
+  const engineToggle = document.getElementById('engineToggle');
+  const ENGINE_LOADING_TEXT = {
+    fast: 'This should only take a few seconds.',
+    quality: 'High-resolution renders can take a minute or two.',
+  };
+  engineToggle.querySelectorAll('.engine-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      selectedEngine = btn.dataset.engine;
+      engineToggle.querySelectorAll('.engine-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
   // ---- render button availability ----------------------------------
   const renderBtn = document.getElementById('renderBtn');
   function updateRenderAvailability() {
@@ -328,6 +343,7 @@
   const errorMessage = document.getElementById('errorMessage');
   const downloadBtn = document.getElementById('downloadBtn');
   const extraInstructions = document.getElementById('extraInstructions');
+  const loadingSubtext = document.getElementById('loadingSubtext');
 
   renderBtn.addEventListener('click', async () => {
     if (renderBtn.disabled) return;
@@ -338,6 +354,7 @@
     renderedPreview.hidden = true;
     errorState.hidden = true;
     loadingState.hidden = false;
+    loadingSubtext.textContent = ENGINE_LOADING_TEXT[selectedEngine] || '';
     downloadBtn.disabled = true;
     resultOverlay.classList.add('open');
 
@@ -349,6 +366,7 @@
           imageBase64: originalDataUrl,
           style: selectedStyle,
           instructions: extraInstructions.value.trim(),
+          engine: selectedEngine,
         }),
       });
       const data = await res.json();
