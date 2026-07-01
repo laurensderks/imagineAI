@@ -33,6 +33,7 @@
       this.history = [];
       this.currentStroke = null;
       this.activePointerId = null;
+      this._suspended = false; // true while a multi-touch gesture (e.g. pinch-zoom) is active
 
       this._bindEvents();
       this.redrawAll();
@@ -42,6 +43,25 @@
     setColor(hex) { this.color = hex; }
     setSize(px) { this.size = px; }
     setEraser(on) { this.isEraser = on; }
+
+    // Discards the in-progress stroke (if any) and repaints from history only,
+    // wiping any pixels the aborted stroke had already painted live.
+    cancelActiveStroke() {
+      if (this.currentStroke) {
+        this.currentStroke = null;
+        this.activePointerId = null;
+        this.redrawAll();
+      }
+    }
+
+    // Called by zoom.js while a two-finger pinch gesture is in progress, so a
+    // second touch point doesn't get interpreted as (or interfere with) a
+    // drawing stroke.
+    setSuspended(suspended) {
+      this._suspended = suspended;
+      if (suspended) this.cancelActiveStroke();
+    }
+
     setBackground(hex) {
       this.bgColor = hex;
       this.redrawAll();
@@ -96,7 +116,18 @@
     }
 
     _onPointerDown(e) {
+      if (this._suspended) return;
       e.preventDefault();
+
+      // A second pointer landing while one is already active means this is a
+      // multi-touch gesture (pinch-to-zoom), not a drawing stroke — bail out
+      // and wait for zoom.js to lift the suspension once all touches end.
+      if (this.activePointerId !== null) {
+        this.cancelActiveStroke();
+        this._suspended = true;
+        return;
+      }
+
       try { this.canvas.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
       this.activePointerId = e.pointerId;
 

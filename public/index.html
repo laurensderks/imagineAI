@@ -81,9 +81,14 @@
     </aside>
 
     <!-- Canvas stage -->
-    <main class="stage">
+    <main class="stage" id="stage">
       <div class="canvas-wrap" id="canvasWrap">
         <canvas id="drawCanvas"></canvas>
+      </div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomOutBtn" aria-label="Zoom out">&minus;</button>
+        <span class="zoom-level" id="zoomLevel">100%</span>
+        <button class="zoom-btn" id="zoomInBtn" aria-label="Zoom in">+</button>
       </div>
     </main>
 
@@ -94,6 +99,7 @@
           <h3>Render style</h3>
           <p class="hint">Pick one look, then render your drawing with AI.</p>
           <div class="style-grid" id="styleGrid"><!-- populated by app.js --></div>
+          <div class="style-detail" id="styleDetail" hidden><!-- populated by app.js --></div>
         </section>
 
         <section class="panel-section">
@@ -161,6 +167,7 @@
 
 <script src="js/brushes.js"></script>
 <script src="js/canvas.js"></script>
+<script src="js/zoom.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

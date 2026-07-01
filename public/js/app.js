@@ -21,6 +21,20 @@
   const RENDER_STYLES = [
     {
       id: 'photorealistic', title: 'Enhanced Photorealistic', desc: 'Lifelike detail & lighting',
+      description: 'Transform the drawing into a highly realistic image that looks like a polished, ' +
+        'high-quality photograph or cinematic still. The final image should have believable lighting, ' +
+        'realistic textures, natural proportions, accurate depth, and convincing materials such as ' +
+        'skin, fabric, wood, glass, metal, water, or stone depending on the subject.',
+      characteristics: [
+        'Realistic anatomy and proportions',
+        'Natural lighting with highlights, shadows, and depth',
+        'Fine details and texture clarity',
+        'Believable materials and surfaces',
+        'Clean edges and high visual fidelity',
+        'Strong sense of realism without looking plastic or uncanny',
+        'Optional subtle cinematic polish, like shallow depth of field or realistic atmosphere',
+      ],
+      tone: 'Crisp, lifelike, detailed, polished, immersive, and visually convincing.',
       thumb: `<svg viewBox="0 0 64 64"><defs><linearGradient id="g-photo" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="#ffb56b"/><stop offset="0.55" stop-color="#ff8a5c"/><stop offset="1" stop-color="#3b4a63"/>
         </linearGradient></defs><rect width="64" height="64" fill="url(#g-photo)"/>
@@ -29,6 +43,20 @@
     },
     {
       id: 'cartoon', title: 'Cute Cartoon', desc: 'Bold, playful & friendly',
+      description: 'Render the drawing as a charming, appealing cartoon illustration with simplified ' +
+        'forms, expressive features, and a playful, friendly personality. The style should feel ' +
+        'polished and intentional, with clean shapes, readable silhouettes, and a warm, joyful visual tone.',
+      characteristics: [
+        'Simplified but expressive forms',
+        'Rounded shapes and appealing proportions',
+        'Clean outlines or well-defined edges',
+        'Bright, harmonious colours',
+        'Strong facial expressions and personality',
+        'Easy-to-read composition',
+        'Fun, cheerful, approachable mood',
+        'Stylised rather than realistic, but still carefully designed',
+      ],
+      tone: 'Adorable, lively, playful, expressive, polished, and family-friendly.',
       thumb: `<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#8fd6ff"/>
         <circle cx="46" cy="16" r="9" fill="#ffe066" stroke="#222" stroke-width="2.5"/>
         <path d="M6 46 Q 20 30 34 44 T 60 40" fill="none" stroke="#222" stroke-width="2.5"/>
@@ -36,6 +64,20 @@
     },
     {
       id: 'watercolour', title: 'Romantic Watercolour', desc: 'Soft washes & bleeds',
+      description: 'Render the drawing as a delicate and beautiful watercolour painting with soft ' +
+        'washes, gentle blending, translucent layering, and an emotional, poetic atmosphere. The image ' +
+        'should feel graceful and artistic, with flowing colour transitions and a hand-painted quality.',
+      characteristics: [
+        'Soft edges and organic brush diffusion',
+        'Transparent layered colour washes',
+        'Gentle, harmonious colour palette',
+        'Light bleeding and subtle texture from paper or pigment',
+        'Elegant, emotional atmosphere',
+        'Loose but controlled details',
+        'Painterly softness without becoming muddy',
+        'A sense of delicacy, charm, and beauty',
+      ],
+      tone: 'Tender, dreamy, graceful, romantic, airy, and painterly.',
       thumb: `<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#faf3ea"/>
         <g filter="url(#soft)" opacity="0.75"><circle cx="22" cy="24" r="16" fill="#f2a6c1"/>
         <circle cx="42" cy="34" r="15" fill="#a9c9f0"/><circle cx="30" cy="44" r="13" fill="#f6d98b"/></g>
@@ -43,6 +85,21 @@
     },
     {
       id: 'pencil', title: 'Modern Edgy Pencil', desc: 'Bold graphite & contrast',
+      description: 'Render the drawing as a contemporary pencil artwork with bold sketch energy, ' +
+        'strong line work, controlled shading, and an artistic, fashion-forward edge. This should ' +
+        'feel more dynamic and expressive than a simple school sketch, with confidence, contrast, ' +
+        'and visual attitude.',
+      characteristics: [
+        'Strong, deliberate pencil lines',
+        'Layered shading and tonal variation',
+        'Energetic sketch marks and expressive texture',
+        'Contemporary, stylish composition',
+        'Good use of contrast and negative space',
+        'Visible graphite or pencil-like texture',
+        'Slight roughness used intentionally for character',
+        'Clean enough to feel refined, loose enough to feel alive',
+      ],
+      tone: 'Stylish, raw, expressive, dramatic, contemporary, and slightly rebellious.',
       thumb: `<svg viewBox="0 0 64 64"><rect width="64" height="64" fill="#f1f1ee"/>
         <g stroke="#2a2a2a" stroke-width="1.4" opacity="0.55">
         <path d="M4 8 L 60 8 M4 16 L 60 16 M4 24 L 60 24 M4 32 L 60 32 M4 40 L 60 40 M4 48 L 60 48 M4 56 L 60 56"/></g>
@@ -50,6 +107,21 @@
     },
     {
       id: 'oil_masters', title: 'Dutch Masters Oil', desc: 'Classic chiaroscuro painting',
+      description: 'Render the drawing as a refined classical oil painting inspired by the great ' +
+        'Dutch master tradition. The final image should feel rich, moody, elegant, and timeless, with ' +
+        'masterful lighting, subtle realism, and painterly depth. Emphasise dramatic light and shadow, ' +
+        'detailed textures, and a sense of dignity or atmosphere.',
+      characteristics: [
+        'Dramatic chiaroscuro lighting',
+        'Deep shadows and luminous highlights',
+        'Rich, earthy, sophisticated colour palette',
+        'Detailed rendering of fabrics, skin, objects, and surfaces',
+        'Painterly brushwork with a refined finish',
+        'Strong composition and timeless presence',
+        'Atmospheric realism rather than photographic realism',
+        'Sense of weight, craftsmanship, and classical beauty',
+      ],
+      tone: 'Elegant, moody, classical, rich, atmospheric, and masterfully painted.',
       thumb: `<svg viewBox="0 0 64 64"><defs><radialGradient id="g-oil" cx="0.4" cy="0.35" r="0.65">
         <stop offset="0" stop-color="#caa25a"/><stop offset="0.5" stop-color="#5c3f26"/><stop offset="1" stop-color="#0e0a06"/>
         </radialGradient></defs><rect width="64" height="64" fill="url(#g-oil)"/>
@@ -57,6 +129,23 @@
     },
     {
       id: 'minecraft', title: 'Minecraft / Pixel Art', desc: 'Blocky voxel style',
+      description: 'Render the drawing in a blocky, voxel-inspired style reminiscent of Minecraft, ' +
+        'or as crisp pixel art depending on the subject. Shapes should be intentionally simplified ' +
+        'into cubes, blocks, or visible pixels, while still preserving readability, charm, and visual ' +
+        'coherence.',
+      characteristics: [
+        'Clearly block-based or pixel-based structure',
+        'Simplified geometry and forms',
+        'Limited but effective colour palette',
+        'Strong silhouette readability',
+        'Tiled or pixel-texture logic where appropriate',
+        'Clean, recognisable objects and characters',
+        'Cohesive stylisation rather than random pixelation',
+        'Playful, game-like feel',
+      ],
+      tone: 'Blocky, nostalgic, playful, stylised, readable, and visually clever.',
+      note: 'If using a Minecraft-like result, favour cubic 3D voxel forms. If using pixel art, favour ' +
+        'crisp sprite-like rendering with intentional pixel placement.',
       thumb: `<svg viewBox="0 0 64 64" shape-rendering="crispEdges"><rect width="64" height="64" fill="#7ec0ee"/>
         <rect y="32" width="64" height="8" fill="#6a9a3d"/><rect y="40" width="64" height="24" fill="#8a5a34"/>
         <rect x="8" y="40" width="8" height="8" fill="#6a4426"/><rect x="24" y="48" width="8" height="8" fill="#6a4426"/>
@@ -65,6 +154,20 @@
     },
     {
       id: 'fantasy', title: 'Dreamlike Fantasy', desc: 'Cinematic & atmospheric',
+      description: 'Render the drawing as a lush fantasy artwork with cinematic lighting, magical ' +
+        'atmosphere, and a sense of wonder. The image should feel immersive and emotionally rich, ' +
+        'like a scene from an epic fantasy film, illustrated storybook, or high-end concept art piece.',
+      characteristics: [
+        'Dramatic, atmospheric lighting',
+        'Soft glow, mist, haze, or magical effects where suitable',
+        'Rich and evocative colour palette',
+        'Sense of depth, scale, and world-building',
+        'Painterly or semi-realistic detail',
+        'Beautiful composition with storytelling energy',
+        'Wonder, mystery, enchantment, or emotional resonance',
+        'Polished fantasy aesthetic without becoming cluttered',
+      ],
+      tone: 'Magical, cinematic, immersive, enchanting, emotional, and visually transportive.',
       thumb: `<svg viewBox="0 0 64 64"><defs><radialGradient id="g-fan" cx="0.65" cy="0.3" r="0.9">
         <stop offset="0" stop-color="#6a4fd6"/><stop offset="0.55" stop-color="#2c2159"/><stop offset="1" stop-color="#0c0a1e"/>
         </radialGradient></defs><rect width="64" height="64" fill="url(#g-fan)"/>
@@ -81,6 +184,16 @@
   const canvasEl = document.getElementById('drawCanvas');
   const drawing = new DrawingCanvas(canvasEl);
   drawing.onStrokeEnd = updateRenderAvailability;
+
+  // ---- zoom (+/- buttons, mouse wheel, two-finger pinch) ---------------
+  new ZoomController({
+    viewport: document.getElementById('stage'),
+    canvasWrap: document.getElementById('canvasWrap'),
+    drawing,
+    levelLabel: document.getElementById('zoomLevel'),
+    zoomInBtn: document.getElementById('zoomInBtn'),
+    zoomOutBtn: document.getElementById('zoomOutBtn'),
+  });
 
   // ---- brush grid -----------------------------------------------------
   const brushGrid = document.getElementById('brushGrid');
@@ -175,6 +288,18 @@
 
   // ---- style picker -----------------------------------------------------
   const styleGrid = document.getElementById('styleGrid');
+  const styleDetail = document.getElementById('styleDetail');
+
+  function showStyleDetail(style) {
+    const characteristics = style.characteristics.map((c) => `<li>${c}</li>`).join('');
+    styleDetail.innerHTML = `
+      <p class="style-detail-desc">${style.description}</p>
+      <ul class="style-detail-list">${characteristics}</ul>
+      <p class="style-detail-tone"><strong>Tone:</strong> ${style.tone}</p>
+      ${style.note ? `<p class="style-detail-note">${style.note}</p>` : ''}`;
+    styleDetail.hidden = false;
+  }
+
   RENDER_STYLES.forEach((style) => {
     const card = document.createElement('button');
     card.className = 'style-card';
@@ -191,6 +316,7 @@
       selectedStyle = style.id;
       [...styleGrid.children].forEach((c) => c.classList.remove('active'));
       card.classList.add('active');
+      showStyleDetail(style);
       updateRenderAvailability();
     });
     styleGrid.appendChild(card);

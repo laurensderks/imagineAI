@@ -319,6 +319,7 @@ input[type="range"]::-moz-range-thumb {
   padding: 24px;
   min-width: 0;
   min-height: 0;
+  overflow: auto;
   background:
     radial-gradient(circle at 30% 20%, rgba(124, 92, 255, 0.06), transparent 45%),
     radial-gradient(circle at 80% 80%, rgba(52, 217, 200, 0.05), transparent 45%),
@@ -327,16 +328,62 @@ input[type="range"]::-moz-range-thumb {
 
 .canvas-wrap {
   position: relative;
-  width: 100%;
-  height: auto;
-  max-width: min(1000px, 100%);
-  max-height: 100%;
-  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  /* Actual size is set in px by zoom.js (ZoomController); these are just a
+     sane default before JS runs on first paint. */
+  width: min(700px, 90vw);
+  height: min(700px, 60vh);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-soft), 0 0 0 1px var(--border);
   background: #fff;
   touch-action: none;
+}
+
+/* ---------------------------------------------------------------- *
+ * Zoom controls
+ * ---------------------------------------------------------------- */
+.zoom-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev-1);
+  box-shadow: var(--shadow-soft);
+  z-index: 10;
+}
+
+.zoom-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+.zoom-btn:hover:not(:disabled) { background: #2a2c38; }
+.zoom-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.zoom-level {
+  min-width: 46px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  user-select: none;
 }
 
 #drawCanvas {
@@ -410,6 +457,53 @@ input[type="range"]::-moz-range-thumb {
   background: var(--accent-grad);
   border-color: transparent;
   color: #fff;
+}
+
+.style-detail {
+  margin-top: 4px;
+  padding: 12px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.style-detail-desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+.style-detail-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.style-detail-list li {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+.style-detail-tone {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0;
+}
+.style-detail-tone strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+.style-detail-note {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  font-style: italic;
 }
 
 .render-btn {
