@@ -62,11 +62,6 @@
       if (suspended) this.cancelActiveStroke();
     }
 
-    setBackground(hex) {
-      this.bgColor = hex;
-      this.redrawAll();
-    }
-
     undo() {
       this.history.pop();
       this.redrawAll();
@@ -74,6 +69,16 @@
 
     clear() {
       this.history = [];
+      this.redrawAll();
+    }
+
+    // Called by pages.js when switching pages: swaps in a different page's
+    // stroke history (each page keeps its own array) without touching
+    // current tool settings like brush/colour/size.
+    loadPage(historyArray) {
+      this.currentStroke = null;
+      this.activePointerId = null;
+      this.history = historyArray;
       this.redrawAll();
     }
 

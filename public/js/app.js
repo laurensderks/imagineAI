@@ -1,19 +1,21 @@
 /**
  * app.js
  *
- * Wires up the UI: brush grid, colour palette, background picker, style
+ * Wires up the UI: page navigator, brush grid, colour palette, style
  * picker, and the Render flow that talks to the backend (server.js), which
  * in turn talks to OpenAI. No API key ever touches this file.
  */
 
 (function () {
   const PRESET_COLORS = [
+    // Original 12
     '#111111', '#ffffff', '#e63946', '#f3722c', '#f8961e', '#f9c74f',
     '#90be6d', '#43aa8b', '#4d9de0', '#3a86ff', '#7c5cff', '#d94ecb',
-  ];
-
-  const PRESET_BACKGROUNDS = [
-    '#ffffff', '#f5f1e8', '#111318', '#0e2433', '#1f2a1a', '#2a1a2a',
+    // Additional 16: neutrals, browns, deep shades, pastels, and extra hues
+    '#a3a3a3', '#6b7280', '#c0c0c0', '#7a4a2b',
+    '#c68642', '#8b0000', '#ff4d6d', '#ff9770',
+    '#ffd23f', '#b5e48c', '#2d6a4f', '#118ab2',
+    '#003049', '#5e548e', '#9d4edd', '#ffafcc',
   ];
 
   // Each `thumb` is a tiny self-contained SVG that gives a rough visual
@@ -195,6 +197,15 @@
     zoomOutBtn: document.getElementById('zoomOutBtn'),
   });
 
+  // ---- pages (5 independent doodles, switchable at any time) ----------
+  new PageManager({
+    drawing,
+    dotsContainer: document.getElementById('pageDots'),
+    prevBtn: document.getElementById('prevPageBtn'),
+    nextBtn: document.getElementById('nextPageBtn'),
+    onPageChange: () => updateRenderAvailability(),
+  });
+
   // ---- brush grid -----------------------------------------------------
   const brushGrid = document.getElementById('brushGrid');
   BRUSH_ORDER.forEach((id) => {
@@ -251,27 +262,6 @@
     eraserBtn.classList.toggle('active', nowOn);
     drawing.setEraser(nowOn);
   });
-
-  // ---- background swatches -------------------------------------------
-  const bgSwatches = document.getElementById('bgSwatches');
-  const customBg = document.getElementById('customBg');
-
-  function selectBg(hex, swatchEl) {
-    drawing.setBackground(hex);
-    [...bgSwatches.children].forEach((c) => c.classList.remove('active'));
-    if (swatchEl) swatchEl.classList.add('active');
-    customBg.value = hex;
-  }
-
-  PRESET_BACKGROUNDS.forEach((hex, i) => {
-    const sw = document.createElement('button');
-    sw.className = 'swatch' + (i === 0 ? ' active' : '');
-    sw.style.background = hex;
-    sw.title = hex;
-    sw.addEventListener('click', () => selectBg(hex, sw));
-    bgSwatches.appendChild(sw);
-  });
-  customBg.addEventListener('input', () => selectBg(customBg.value, null));
 
   // ---- undo / clear -----------------------------------------------------
   document.getElementById('undoBtn').addEventListener('click', () => {

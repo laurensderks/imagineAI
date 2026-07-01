@@ -41,6 +41,15 @@
       <div class="panel-scroll">
 
         <section class="panel-section">
+          <h3>Pages</h3>
+          <div class="page-nav">
+            <button class="page-arrow" id="prevPageBtn" aria-label="Previous page">&lsaquo;</button>
+            <div class="page-dots" id="pageDots"><!-- populated by app.js --></div>
+            <button class="page-arrow" id="nextPageBtn" aria-label="Next page">&rsaquo;</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
           <h3>Brush</h3>
           <div class="brush-grid" id="brushGrid"><!-- populated by app.js --></div>
         </section>
@@ -65,15 +74,6 @@
           <label class="custom-color-row">
             <span>Custom</span>
             <input type="color" id="customColor" value="#7c5cff" />
-          </label>
-        </section>
-
-        <section class="panel-section">
-          <h3>Canvas background</h3>
-          <div class="swatch-grid" id="bgSwatches"><!-- populated by app.js --></div>
-          <label class="custom-color-row">
-            <span>Custom</span>
-            <input type="color" id="customBg" value="#ffffff" />
           </label>
         </section>
 
@@ -168,6 +168,7 @@
 <script src="js/brushes.js"></script>
 <script src="js/canvas.js"></script>
 <script src="js/zoom.js"></script>
+<script src="js/pages.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

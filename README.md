@@ -30,8 +30,11 @@ sketch through OpenAI's image API in one of 7 art styles.
   the browser). It forwards the drawing + chosen style to `images.edit`
   (`gpt-image-1`) and returns the result as base64.
 - `public/js/canvas.js` — the drawing engine (pointer events for
-  mouse/touch/stylus, undo history, background colour, fixed 1024x1024
-  internal resolution so no rescaling is needed before sending to the API).
+  mouse/touch/stylus, undo history, fixed 1024x1024 internal resolution so
+  no rescaling is needed before sending to the API).
 - `public/js/brushes.js` — the 12 brush renderers.
+- `public/js/zoom.js` — canvas zoom (+/- buttons, wheel, pinch) and
+  two-finger pan.
+- `public/js/pages.js` — 5 independent, switchable drawing pages.
 - `public/js/app.js` — UI wiring (palette, brush grid, style picker, render
   flow, mobile panels).
