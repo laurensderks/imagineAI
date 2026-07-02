@@ -108,7 +108,7 @@
         <circle cx="32" cy="32" r="18" fill="none" stroke="#111" stroke-width="3"/></svg>`,
     },
     {
-      id: 'oil_masters', title: 'Dutch Masters Oil', desc: 'Classic chiaroscuro painting',
+      id: 'oil_masters', title: 'Dramatic Oil Painting', desc: 'Classic chiaroscuro painting',
       description: 'Render the drawing as a refined classical oil painting inspired by the great ' +
         'Dutch master tradition. The final image should feel rich, moody, elegant, and timeless, with ' +
         'masterful lighting, subtle realism, and painterly depth. Emphasise dramatic light and shadow, ' +
@@ -394,13 +394,28 @@
   });
 
   downloadBtn.addEventListener('click', () => {
-    if (!renderedPreview.src) return;
+    if (!renderedPreview.src || downloadBtn.disabled) return;
     const a = document.createElement('a');
     a.href = renderedPreview.src;
     a.download = 'imagineai-render.png';
     document.body.appendChild(a);
     a.click();
-    a.remove();
+    // Large data: URIs (multi-MB at High-Res) need a moment for the browser
+    // to actually kick off the download before we remove the element —
+    // removing it in the same tick as click() can silently cancel it.
+    setTimeout(() => a.remove(), 150);
+  });
+
+  // ---- about this project ----------------------------------------------
+  const aboutOverlay = document.getElementById('aboutOverlay');
+  document.getElementById('aboutBtn').addEventListener('click', () => {
+    aboutOverlay.classList.add('open');
+  });
+  document.getElementById('closeAbout').addEventListener('click', () => {
+    aboutOverlay.classList.remove('open');
+  });
+  aboutOverlay.addEventListener('click', (e) => {
+    if (e.target === aboutOverlay) aboutOverlay.classList.remove('open');
   });
 
   // ---- mobile slide-in panels -----------------------------------------
