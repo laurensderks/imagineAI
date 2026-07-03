@@ -291,10 +291,7 @@
   };
 
   // Ordered list drives the UI grid in app.js.
-  const BRUSH_ORDER = [
-    'pen', 'marker', 'pencil', 'ink', 'soft', 'watercolour',
-    'charcoal', 'crayon', 'spray', 'calligraphy', 'pixel', 'glow',
-  ];
+  const BRUSH_ORDER = ['pen', 'ink', 'soft', 'spray', 'pixel'];
 
   global.BRUSHES = BRUSHES;
   global.BRUSH_ORDER = BRUSH_ORDER;

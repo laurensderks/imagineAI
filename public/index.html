@@ -75,6 +75,15 @@
             <span>Custom</span>
             <input type="color" id="customColor" value="#7c5cff" />
           </label>
+
+          <div class="row-between custom-palette-header">
+            <span>My palette</span>
+            <button class="palette-save-btn" id="paletteSaveBtn" title="Save current colour to your palette">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Save</span>
+            </button>
+          </div>
+          <div class="swatch-grid custom-palette" id="customPalette"><!-- 6 slots populated by app.js --></div>
         </section>
 
       </div>

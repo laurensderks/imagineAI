@@ -7,16 +7,16 @@
  */
 
 (function () {
+  // Ordered as a smooth spectrum so similar colours sit next to each other:
+  // neutrals → browns → reds → oranges → yellows → greens → blues → purples → pinks.
   const PRESET_COLORS = [
-    // Original 12
-    '#111111', '#ffffff', '#e63946', '#f3722c', '#f8961e', '#f9c74f',
-    '#90be6d', '#43aa8b', '#4d9de0', '#3a86ff', '#7c5cff', '#d94ecb',
-    // Additional 16: neutrals, browns, deep shades, pastels, and extra hues
-    '#a3a3a3', '#6b7280', '#c0c0c0', '#7a4a2b',
-    '#c68642', '#8b0000', '#ff4d6d', '#ff9770',
-    '#ffd23f', '#b5e48c', '#2d6a4f', '#118ab2',
-    '#003049', '#5e548e', '#9d4edd', '#ffafcc',
+    '#111111', '#6b7280', '#a3a3a3', '#c0c0c0', '#ffffff', '#7a4a2b', // neutrals + brown
+    '#c68642', '#8b0000', '#e63946', '#ff4d6d', '#ff9770', '#f3722c', // brown → reds → orange
+    '#f8961e', '#f9c74f', '#ffd23f', '#b5e48c', '#90be6d', '#43aa8b', // oranges → yellows → greens
+    '#2d6a4f', '#118ab2', '#4d9de0', '#3a86ff', '#003049', '#5e548e', // greens → blues → purple
+    '#7c5cff', '#9d4edd', '#d94ecb', '#ffafcc',                       // purples → pinks
   ];
+  const DEFAULT_COLOR_INDEX = 24; // #7c5cff, the purple accent
 
   // Each `thumb` is a tiny self-contained SVG that gives a rough visual
   // impression of the style (no external images/API calls needed for this).
@@ -236,25 +236,82 @@
   // ---- colour swatches ----------------------------------------------
   const colorSwatches = document.getElementById('colorSwatches');
   const customColor = document.getElementById('customColor');
+  const customPalette = document.getElementById('customPalette');
+  const paletteSaveBtn = document.getElementById('paletteSaveBtn');
+
+  const PALETTE_SIZE = 6;
+  const PALETTE_KEY = 'imagineai.customPalette';
+  let activeColor = '#7c5cff';
 
   function selectColor(hex, swatchEl) {
+    activeColor = hex;
     drawing.setColor(hex);
     eraserBtn.classList.remove('active');
     drawing.setEraser(false);
-    [...colorSwatches.children].forEach((c) => c.classList.remove('active'));
+    // Clear active state across both preset swatches and custom palette slots.
+    document.querySelectorAll('#colorSwatches .swatch, #customPalette .swatch')
+      .forEach((c) => c.classList.remove('active'));
     if (swatchEl) swatchEl.classList.add('active');
     customColor.value = hex;
   }
 
   PRESET_COLORS.forEach((hex, i) => {
     const sw = document.createElement('button');
-    sw.className = 'swatch' + (i === 10 ? ' active' : ''); // default = the purple accent
+    sw.className = 'swatch' + (i === DEFAULT_COLOR_INDEX ? ' active' : ''); // default = the purple accent
     sw.style.background = hex;
     sw.title = hex;
     sw.addEventListener('click', () => selectColor(hex, sw));
     colorSwatches.appendChild(sw);
   });
   customColor.addEventListener('input', () => selectColor(customColor.value, null));
+
+  // ---- custom "My palette" (6 saveable slots, persisted to localStorage) ---
+  function loadPalette() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(PALETTE_KEY));
+      if (Array.isArray(stored)) return stored.slice(0, PALETTE_SIZE);
+    } catch (_) { /* ignore malformed storage */ }
+    return [];
+  }
+  function savePalette(colors) {
+    try { localStorage.setItem(PALETTE_KEY, JSON.stringify(colors)); } catch (_) { /* ignore */ }
+  }
+
+  let paletteColors = loadPalette(); // array of hex strings, up to PALETTE_SIZE
+
+  function renderPalette() {
+    customPalette.innerHTML = '';
+    for (let i = 0; i < PALETTE_SIZE; i++) {
+      const hex = paletteColors[i];
+      const slot = document.createElement('button');
+      if (hex) {
+        slot.className = 'swatch';
+        slot.style.background = hex;
+        slot.title = hex;
+        slot.addEventListener('click', () => selectColor(hex, slot));
+      } else {
+        slot.className = 'swatch empty';
+        slot.title = 'Save a colour here with the Save button';
+      }
+      customPalette.appendChild(slot);
+    }
+  }
+
+  // Save the current colour into the next free slot, or cycle-overwrite the
+  // oldest once all six are full, so the button always does something useful.
+  function saveCurrentColor() {
+    if (paletteColors.length < PALETTE_SIZE) {
+      paletteColors.push(activeColor);
+    } else {
+      paletteColors.shift();
+      paletteColors.push(activeColor);
+    }
+    savePalette(paletteColors);
+    renderPalette();
+  }
+
+  paletteSaveBtn.addEventListener('click', saveCurrentColor);
+  renderPalette();
 
   // ---- eraser ---------------------------------------------------------
   const eraserBtn = document.getElementById('eraserBtn');
