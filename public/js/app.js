@@ -277,21 +277,13 @@
     }
   });
 
-  // ---- style picker -----------------------------------------------------
+  // ---- style picker (accordion: description opens under its own tile) ---
   const styleGrid = document.getElementById('styleGrid');
-  const styleDetail = document.getElementById('styleDetail');
-
-  function showStyleDetail(style) {
-    const characteristics = style.characteristics.map((c) => `<li>${c}</li>`).join('');
-    styleDetail.innerHTML = `
-      <p class="style-detail-desc">${style.description}</p>
-      <ul class="style-detail-list">${characteristics}</ul>
-      <p class="style-detail-tone"><strong>Tone:</strong> ${style.tone}</p>
-      ${style.note ? `<p class="style-detail-note">${style.note}</p>` : ''}`;
-    styleDetail.hidden = false;
-  }
 
   RENDER_STYLES.forEach((style) => {
+    const item = document.createElement('div');
+    item.className = 'style-item';
+
     const card = document.createElement('button');
     card.className = 'style-card';
     card.innerHTML = `
@@ -303,14 +295,32 @@
       <span class="style-check">
         <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
       </span>`;
+
+    const characteristics = style.characteristics.map((c) => `<li>${c}</li>`).join('');
+    const detailWrap = document.createElement('div');
+    detailWrap.className = 'style-detail-wrap';
+    detailWrap.innerHTML = `
+      <div class="style-detail-inner">
+        <div class="style-detail-content">
+          <p class="style-detail-desc">${style.description}</p>
+          <ul class="style-detail-list">${characteristics}</ul>
+          <p class="style-detail-tone"><strong>Tone:</strong> ${style.tone}</p>
+          ${style.note ? `<p class="style-detail-note">${style.note}</p>` : ''}
+        </div>
+      </div>`;
+
     card.addEventListener('click', () => {
       selectedStyle = style.id;
-      [...styleGrid.children].forEach((c) => c.classList.remove('active'));
+      [...styleGrid.querySelectorAll('.style-card')].forEach((c) => c.classList.remove('active'));
+      [...styleGrid.querySelectorAll('.style-detail-wrap')].forEach((w) => w.classList.remove('open'));
       card.classList.add('active');
-      showStyleDetail(style);
+      detailWrap.classList.add('open');
       updateRenderAvailability();
     });
-    styleGrid.appendChild(card);
+
+    item.appendChild(card);
+    item.appendChild(detailWrap);
+    styleGrid.appendChild(item);
   });
 
   // ---- render engine toggle (fast gpt-image-1 vs high-res gpt-image-2) --

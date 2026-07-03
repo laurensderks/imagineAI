@@ -512,14 +512,34 @@ input[type="range"]::-moz-range-thumb {
   color: #fff;
 }
 
-.style-detail {
-  margin-top: 4px;
+.style-item {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Accordion: grid-template-rows animates 0fr -> 1fr so the panel eases open
+   to its natural content height (no JS height measuring needed), while the
+   overflow-hidden inner clips it during the transition. */
+.style-detail-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.style-detail-wrap.open {
+  grid-template-rows: 1fr;
+}
+
+.style-detail-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.style-detail-content {
+  margin-top: 8px;
   padding: 12px 13px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-elev-2);
-  max-height: 260px;
-  overflow-y: auto;
 }
 .style-detail-desc {
   font-size: 12px;
@@ -594,7 +614,6 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .render-btn {
-  margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
