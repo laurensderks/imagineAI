@@ -21,11 +21,10 @@
   // Each tile's background image is loaded from img/styles/<id>.jpg.
   const RENDER_STYLES = [
     {
-      id: 'photorealistic', title: 'Enhanced Photorealistic', desc: 'Lifelike detail & lighting',
-      description: 'Transform the drawing into a highly realistic image that looks like a polished, ' +
-        'high-quality photograph or cinematic still. The final image should have believable lighting, ' +
-        'realistic textures, natural proportions, accurate depth, and convincing materials such as ' +
-        'skin, fabric, wood, glass, metal, water, or stone depending on the subject.',
+      id: 'photorealistic', title: 'Photorealistic', desc: 'Lifelike detail & lighting',
+      description: 'Transform the drawing into a polished, high-quality photograph or cinematic still, ' +
+        'with believable lighting, realistic textures, natural proportions, and convincing materials ' +
+        'that make the scene feel genuinely real.',
       characteristics: [
         'Realistic anatomy and proportions',
         'Natural lighting with highlights, shadows, and depth',
@@ -38,10 +37,10 @@
       tone: 'Crisp, lifelike, detailed, polished, immersive, and visually convincing.',
     },
     {
-      id: 'cartoon', title: 'Cute Cartoon', desc: 'Bold, playful & friendly',
-      description: 'Render the drawing as a charming, appealing cartoon illustration with simplified ' +
-        'forms, expressive features, and a playful, friendly personality. The style should feel ' +
-        'polished and intentional, with clean shapes, readable silhouettes, and a warm, joyful visual tone.',
+      id: 'cartoon', title: 'Cartoon', desc: 'Bold, playful & friendly',
+      description: 'Render the drawing as a charming, appealing cartoon with simplified, expressive ' +
+        'forms and a playful, friendly personality — clean shapes, readable silhouettes, and a warm, ' +
+        'joyful tone.',
       characteristics: [
         'Simplified but expressive forms',
         'Rounded shapes and appealing proportions',
@@ -55,10 +54,10 @@
       tone: 'Adorable, lively, playful, expressive, polished, and family-friendly.',
     },
     {
-      id: 'watercolour', title: 'Romantic Watercolour', desc: 'Soft washes & bleeds',
-      description: 'Render the drawing as a delicate and beautiful watercolour painting with soft ' +
-        'washes, gentle blending, translucent layering, and an emotional, poetic atmosphere. The image ' +
-        'should feel graceful and artistic, with flowing colour transitions and a hand-painted quality.',
+      id: 'watercolour', title: 'Watercolour', desc: 'Soft washes & bleeds',
+      description: 'Render the drawing as a delicate watercolour with soft washes, gentle blending, ' +
+        'and translucent layering — graceful, artistic, and emotional, with flowing colours and a ' +
+        'hand-painted feel.',
       characteristics: [
         'Soft edges and organic brush diffusion',
         'Transparent layered colour washes',
@@ -72,11 +71,10 @@
       tone: 'Tender, dreamy, graceful, romantic, airy, and painterly.',
     },
     {
-      id: 'pencil', title: 'Modern Edgy Pencil', desc: 'Bold graphite & contrast',
+      id: 'pencil', title: 'Pencil', desc: 'Bold graphite & contrast',
       description: 'Render the drawing as a contemporary pencil artwork with bold sketch energy, ' +
-        'strong line work, controlled shading, and an artistic, fashion-forward edge. This should ' +
-        'feel more dynamic and expressive than a simple school sketch, with confidence, contrast, ' +
-        'and visual attitude.',
+        'strong line work, and controlled shading — dynamic, expressive, and full of confidence, ' +
+        'contrast, and attitude.',
       characteristics: [
         'Strong, deliberate pencil lines',
         'Layered shading and tonal variation',
@@ -90,11 +88,10 @@
       tone: 'Stylish, raw, expressive, dramatic, contemporary, and slightly rebellious.',
     },
     {
-      id: 'oil_masters', title: 'Dramatic Oil Painting', desc: 'Classic chiaroscuro painting',
-      description: 'Render the drawing as a refined classical oil painting inspired by the great ' +
-        'Dutch master tradition. The final image should feel rich, moody, elegant, and timeless, with ' +
-        'masterful lighting, subtle realism, and painterly depth. Emphasise dramatic light and shadow, ' +
-        'detailed textures, and a sense of dignity or atmosphere.',
+      id: 'oil_masters', title: 'Oil Painting', desc: 'Classic chiaroscuro painting',
+      description: 'Render the drawing as a refined classical oil painting in the great Dutch master ' +
+        'tradition — rich, moody, elegant, and timeless, with masterful lighting, dramatic light and ' +
+        'shadow, and painterly depth.',
       characteristics: [
         'Dramatic chiaroscuro lighting',
         'Deep shadows and luminous highlights',
@@ -108,11 +105,10 @@
       tone: 'Elegant, moody, classical, rich, atmospheric, and masterfully painted.',
     },
     {
-      id: 'minecraft', title: 'Minecraft / Pixel Art', desc: 'Blocky voxel style',
-      description: 'Render the drawing in a blocky, voxel-inspired style reminiscent of Minecraft, ' +
-        'or as crisp pixel art depending on the subject. Shapes should be intentionally simplified ' +
-        'into cubes, blocks, or visible pixels, while still preserving readability, charm, and visual ' +
-        'coherence.',
+      id: 'minecraft', title: 'Pixel', desc: 'Blocky voxel style',
+      description: 'Render the drawing in a blocky, voxel-inspired style like Minecraft, or crisp ' +
+        'pixel art — shapes simplified into cubes, blocks, or visible pixels, while staying readable ' +
+        'and charming.',
       characteristics: [
         'Clearly block-based or pixel-based structure',
         'Simplified geometry and forms',
@@ -128,10 +124,10 @@
         'crisp sprite-like rendering with intentional pixel placement.',
     },
     {
-      id: 'fantasy', title: 'Dreamlike Fantasy', desc: 'Cinematic & atmospheric',
+      id: 'fantasy', title: 'Fantasy', desc: 'Cinematic & atmospheric',
       description: 'Render the drawing as a lush fantasy artwork with cinematic lighting, magical ' +
-        'atmosphere, and a sense of wonder. The image should feel immersive and emotionally rich, ' +
-        'like a scene from an epic fantasy film, illustrated storybook, or high-end concept art piece.',
+        'atmosphere, and a sense of wonder — immersive and emotionally rich, like an epic fantasy ' +
+        'film or high-end concept art.',
       characteristics: [
         'Dramatic, atmospheric lighting',
         'Soft glow, mist, haze, or magical effects where suitable',
