@@ -50,8 +50,12 @@
         </section>
 
         <section class="panel-section">
-          <h3>Brush</h3>
+          <div class="row-between">
+            <h3>Brush</h3>
+            <span class="value-pill" id="brushName">Velvet Pen</span>
+          </div>
           <div class="brush-grid" id="brushGrid"><!-- populated by app.js --></div>
+          <canvas class="brush-preview" id="brushPreview" aria-label="Live preview of the current brush stroke"></canvas>
         </section>
 
         <section class="panel-section">
@@ -93,6 +97,7 @@
     <main class="stage" id="stage">
       <div class="canvas-wrap" id="canvasWrap">
         <canvas id="drawCanvas"></canvas>
+        <div class="brush-cursor" id="brushCursor" hidden></div>
       </div>
       <div class="zoom-controls">
         <button class="zoom-btn" id="zoomOutBtn" aria-label="Zoom out">&minus;</button>

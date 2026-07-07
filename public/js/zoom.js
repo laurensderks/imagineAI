@@ -2,14 +2,18 @@
  * zoom.js
  *
  * Lets the user zoom the drawing canvas in/out via the +/- buttons, the
- * mouse wheel, or a two-finger pinch gesture on touch devices — and pan
- * around it once zoomed in by dragging with two fingers.
+ * mouse wheel / trackpad pinch, or a two-finger pinch gesture on touch
+ * devices — and pan around it with a two-finger drag once zoomed in.
  *
- * Zooming resizes the canvas-wrap element in CSS pixels inside a scrollable
- * viewport (.stage) — the canvas's own backing-store resolution never
+ * All zooming is ANCHORED: the canvas point under the cursor (wheel) or
+ * under the finger midpoint (pinch) stays fixed on screen while the canvas
+ * scales around it, which is what makes the gesture feel native. Panning is
+ * just scrolling the .stage viewport.
+ *
+ * Zooming resizes the canvas-wrap element in CSS pixels inside that
+ * scrollable viewport — the canvas's own backing-store resolution never
  * changes, so drawing accuracy (canvas.js's _getPoint derives its scale from
- * getBoundingClientRect at draw time) is unaffected by zoom level. Panning is
- * just scrolling that same viewport.
+ * getBoundingClientRect at draw time) is unaffected by zoom level.
  */
 
 (function (global) {
@@ -33,6 +37,7 @@
 
       this._recomputeBaseSize();
       this._applySize();
+      this._recenter();
       this._bindEvents();
     }
 
@@ -47,11 +52,7 @@
       this.baseSize = Math.max(120, Math.min(1000, availW, availH));
     }
 
-    // `recenter` re-centres the canvas in the viewport after resizing — the
-    // right thing for button/wheel zoom, but pinch-zoom manages scroll
-    // position itself (see _onTouchMove) so the user's two-finger pan isn't
-    // fought/overridden every frame.
-    _applySize(recenter = true) {
+    _applySize() {
       const size = Math.round(this.baseSize * this.zoom);
       this.canvasWrap.style.width = `${size}px`;
       this.canvasWrap.style.height = `${size}px`;
@@ -59,41 +60,61 @@
       if (this.levelLabel) this.levelLabel.textContent = `${Math.round(this.zoom * 100)}%`;
       if (this.zoomInBtn) this.zoomInBtn.disabled = this.zoom >= MAX_ZOOM - 1e-6;
       if (this.zoomOutBtn) this.zoomOutBtn.disabled = this.zoom <= MIN_ZOOM + 1e-6;
-
-      if (recenter) {
-        requestAnimationFrame(() => {
-          this.viewport.scrollLeft = (this.viewport.scrollWidth - this.viewport.clientWidth) / 2;
-          this.viewport.scrollTop = (this.viewport.scrollHeight - this.viewport.clientHeight) / 2;
-        });
-      }
     }
 
-    setZoom(next, { recenter = true } = {}) {
+    _recenter() {
+      requestAnimationFrame(() => {
+        this.viewport.scrollLeft = (this.viewport.scrollWidth - this.viewport.clientWidth) / 2;
+        this.viewport.scrollTop = (this.viewport.scrollHeight - this.viewport.clientHeight) / 2;
+      });
+    }
+
+    // Anchored zoom: scale the canvas while keeping the canvas point that sits
+    // under (clientX, clientY) fixed on screen. Layout is synchronous after a
+    // style write, so reading the wrap's rect before/after gives exact deltas.
+    zoomAt(next, clientX, clientY) {
       const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
       if (clamped === this.zoom) return;
+
+      const before = this.canvasWrap.getBoundingClientRect();
+      const fx = (clientX - before.left) / before.width;
+      const fy = (clientY - before.top) / before.height;
+
       this.zoom = clamped;
-      this._applySize(recenter);
+      this._applySize();
+
+      const after = this.canvasWrap.getBoundingClientRect();
+      this.viewport.scrollLeft += (after.left + fx * after.width) - clientX;
+      this.viewport.scrollTop += (after.top + fy * after.height) - clientY;
     }
 
-    zoomIn() { this.setZoom(this.zoom + STEP); }
-    zoomOut() { this.setZoom(this.zoom - STEP); }
+    // Buttons anchor at the viewport centre — zooming "into the middle".
+    _zoomStep(delta) {
+      const r = this.viewport.getBoundingClientRect();
+      this.zoomAt(this.zoom + delta, r.left + r.width / 2, r.top + r.height / 2);
+    }
 
     _bindEvents() {
-      if (this.zoomInBtn) this.zoomInBtn.addEventListener('click', () => this.zoomIn());
-      if (this.zoomOutBtn) this.zoomOutBtn.addEventListener('click', () => this.zoomOut());
+      if (this.zoomInBtn) this.zoomInBtn.addEventListener('click', () => this._zoomStep(STEP));
+      if (this.zoomOutBtn) this.zoomOutBtn.addEventListener('click', () => this._zoomStep(-STEP));
 
       window.addEventListener('resize', () => {
         this._recomputeBaseSize();
         this._applySize();
+        this._recenter();
       });
 
+      // Wheel zoom anchored at the cursor. Trackpad pinches arrive as wheel
+      // events with ctrlKey set and small deltas — boost those so a physical
+      // pinch feels 1:1 rather than sluggish.
       this.viewport.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const factor = Math.exp(-e.deltaY * WHEEL_SENSITIVITY);
-        this.setZoom(this.zoom * factor);
+        const boost = e.ctrlKey ? 3 : 1;
+        const factor = Math.exp(-e.deltaY * WHEEL_SENSITIVITY * boost);
+        this.zoomAt(this.zoom * factor, e.clientX, e.clientY);
       }, { passive: false });
 
-      // Pinch-to-zoom (two-finger touch, e.g. iPad).
+      // Two-finger pinch-zoom + pan (e.g. iPad).
       this.canvasWrap.addEventListener('touchstart', (e) => this._onTouchStart(e), { passive: false });
       this.canvasWrap.addEventListener('touchmove', (e) => this._onTouchMove(e), { passive: false });
       this.canvasWrap.addEventListener('touchend', (e) => this._onTouchEnd(e), { passive: false });
@@ -125,14 +146,15 @@
     _onTouchMove(e) {
       if (e.touches.length === 2 && this._pinch) {
         e.preventDefault();
-
-        // Pinch distance controls zoom...
-        const ratio = this._touchDistance(e.touches) / this._pinch.startDist;
-        this.setZoom(this._pinch.startZoom * ratio, { recenter: false });
-
-        // ...while the midpoint's frame-to-frame movement pans the view, so
-        // a two-finger drag ("push/pull") moves around a zoomed-in canvas.
         const mid = this._touchMidpoint(e.touches);
+
+        // Finger spread controls zoom, anchored at the finger midpoint so the
+        // spot being pinched stays pinned under the fingers...
+        const ratio = this._touchDistance(e.touches) / this._pinch.startDist;
+        this.zoomAt(this._pinch.startZoom * ratio, mid.x, mid.y);
+
+        // ...and the midpoint's frame-to-frame movement pans the view, so the
+        // same two-finger gesture drags the canvas around while zoomed.
         this.viewport.scrollLeft -= mid.x - this._pinch.lastMidpoint.x;
         this.viewport.scrollTop -= mid.y - this._pinch.lastMidpoint.y;
         this._pinch.lastMidpoint = mid;

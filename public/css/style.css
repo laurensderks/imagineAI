@@ -251,6 +251,25 @@ svg {
   transition: all 0.15s ease;
   position: relative;
 }
+.brush-btn svg {
+  width: 27px;
+  height: 27px;
+  transition: transform 0.15s ease;
+}
+
+/* Live stroke preview — the actual brush engine paints this swatch. */
+.brush-preview {
+  width: 100%;
+  height: 46px;
+  margin-top: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  transition: opacity 0.15s ease;
+}
+.brush-preview.erasing { opacity: 0.3; }
+.brush-btn:hover svg { transform: scale(1.12) rotate(-3deg); }
+.brush-btn.active svg { transform: scale(1.08); }
 .brush-btn:hover { border-color: #3a3d4d; color: var(--text); }
 .brush-btn.active {
   background: rgba(124, 92, 255, 0.16);
@@ -411,8 +430,9 @@ input[type="range"]::-moz-range-thumb {
 .stage {
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Centering is done with margin:auto on the child (not align/justify
+     center) so that when the zoomed canvas overflows, its top-left is still
+     reachable by scrolling — flex centering clips that region unreachably. */
   padding: 24px;
   min-width: 0;
   min-height: 0;
@@ -426,6 +446,7 @@ input[type="range"]::-moz-range-thumb {
 .canvas-wrap {
   position: relative;
   flex-shrink: 0;
+  margin: auto;
   /* Actual size is set in px by zoom.js (ZoomController); these are just a
      sane default before JS runs on first paint. */
   width: min(700px, 90vw);
@@ -488,8 +509,21 @@ input[type="range"]::-moz-range-thumb {
   height: 100%;
   display: block;
   touch-action: none;
-  cursor: crosshair;
+  cursor: none; /* replaced by the true-size .brush-cursor ring */
 }
+
+/* True-size brush cursor: a ring matching the exact brush diameter and
+   colour, tracked by app.js. Hidden for touch input. */
+.brush-cursor {
+  position: absolute;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28);
+  z-index: 5;
+}
+.brush-cursor.eraser { border-style: dashed; }
 
 /* ---------------------------------------------------------------- *
  * Style picker

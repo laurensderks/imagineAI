@@ -6,6 +6,12 @@
  * pressure), the stroke history (for undo/redraw), and the background
  * colour.
  *
+ * Incoming pointer input runs through a STABILIZER: each raw point is eased
+ * toward the previous drawn point, filtering hand wobble into confident,
+ * flowing lines (with a catch-up pass on release so strokes still finish
+ * exactly where the pointer lifted). The smoothed points are what's stored,
+ * so replays are identical.
+ *
  * The backing store is a fixed 1024x1024 logical resolution — CSS scales it
  * responsively for display, and 1024x1024 also happens to be the size we
  * request from the image API, so no rescaling is needed before export.
@@ -13,6 +19,8 @@
 
 (function (global) {
   const LOGICAL_SIZE = 1024;
+  const SMOOTHING = 0.35;  // how far each raw point pulls the line (lower = steadier)
+  const MIN_DIST = 0.8;    // ignore sub-pixel jitter between events
 
   class DrawingCanvas {
     constructor(canvasEl) {
@@ -47,6 +55,7 @@
     // Discards the in-progress stroke (if any) and repaints from history only,
     // wiping any pixels the aborted stroke had already painted live.
     cancelActiveStroke() {
+      this._lastRaw = null;
       if (this.currentStroke) {
         this.currentStroke = null;
         this.activePointerId = null;
@@ -137,12 +146,14 @@
       this.activePointerId = e.pointerId;
 
       const pt = this._getPoint(e);
+      this._lastRaw = pt;
       this.currentStroke = {
         tool: this.isEraser ? 'eraser' : 'brush',
         brushId: this.brushId,
         color: this.color,
         size: this.size,
         points: [pt],
+        _state: {}, // per-stroke scratch for brushes (width smoothing etc.)
       };
       this._paintSegment(this.currentStroke, pt, pt);
     }
@@ -154,8 +165,16 @@
       const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
       const pts = events.length ? events : [e];
       for (const ev of pts) {
-        const pt = this._getPoint(ev);
+        const raw = this._getPoint(ev);
+        this._lastRaw = raw;
+        // Stabilizer: ease toward the raw point rather than jumping to it.
         const last = this.currentStroke.points[this.currentStroke.points.length - 1];
+        const pt = {
+          x: last.x + (raw.x - last.x) * SMOOTHING,
+          y: last.y + (raw.y - last.y) * SMOOTHING,
+          pressure: last.pressure + (raw.pressure - last.pressure) * SMOOTHING,
+        };
+        if (Math.hypot(pt.x - last.x, pt.y - last.y) < MIN_DIST) continue;
         this._paintSegment(this.currentStroke, last, pt);
         this.currentStroke.points.push(pt);
       }
@@ -163,6 +182,25 @@
 
     _onPointerEnd(e) {
       if (!this.currentStroke || e.pointerId !== this.activePointerId) return;
+
+      // Catch-up: the stabilizer trails behind the pointer, so ease the tail
+      // out to where the pointer actually lifted — strokes end on target.
+      const raw = this._lastRaw;
+      if (raw) {
+        for (let i = 0; i < 6; i++) {
+          const last = this.currentStroke.points[this.currentStroke.points.length - 1];
+          if (Math.hypot(raw.x - last.x, raw.y - last.y) < 0.6) break;
+          const pt = {
+            x: last.x + (raw.x - last.x) * 0.5,
+            y: last.y + (raw.y - last.y) * 0.5,
+            pressure: last.pressure + (raw.pressure - last.pressure) * 0.5,
+          };
+          this._paintSegment(this.currentStroke, last, pt);
+          this.currentStroke.points.push(pt);
+        }
+      }
+      this._lastRaw = null;
+
       this.history.push(this.currentStroke);
       this.currentStroke = null;
       this.activePointerId = null;
@@ -193,6 +231,7 @@
         size: stroke.size,
         color: stroke.color,
         pressure: p1.pressure != null ? p1.pressure : 0.5,
+        state: stroke._state || (stroke._state = {}),
       });
     }
 
@@ -203,6 +242,7 @@
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
       for (const stroke of this.history) {
+        stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
         const pts = stroke.points;
         if (pts.length === 1) {
           this._paintSegment(stroke, pts[0], pts[0]);

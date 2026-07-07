@@ -172,21 +172,62 @@
 
   // ---- brush grid -----------------------------------------------------
   const brushGrid = document.getElementById('brushGrid');
+  const brushNameEl = document.getElementById('brushName');
   BRUSH_ORDER.forEach((id) => {
     const b = BRUSHES[id];
     const btn = document.createElement('button');
     btn.className = 'brush-btn' + (id === 'pen' ? ' active' : '');
     btn.title = b.label;
     btn.dataset.brush = id;
-    btn.innerHTML = `<span>${b.glyph}</span>`;
+    btn.innerHTML = b.icon;
     btn.addEventListener('click', () => {
       drawing.setBrush(id);
       eraserBtn.classList.remove('active');
+      brushPreviewEl.classList.remove('erasing');
       [...brushGrid.children].forEach((c) => c.classList.remove('active'));
       btn.classList.add('active');
+      brushNameEl.textContent = b.label;
+      renderBrushPreview();
     });
     brushGrid.appendChild(btn);
   });
+
+  // ---- live stroke preview -------------------------------------------
+  // A sample swoosh painted by the REAL brush engine in the current colour,
+  // so the tile always shows exactly the mark you're about to make.
+  const brushPreviewEl = document.getElementById('brushPreview');
+  function renderBrushPreview() {
+    const cssW = brushPreviewEl.clientWidth;
+    const cssH = brushPreviewEl.clientHeight;
+    if (!cssW || !cssH) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (brushPreviewEl.width !== Math.round(cssW * dpr)) {
+      brushPreviewEl.width = Math.round(cssW * dpr);
+      brushPreviewEl.height = Math.round(cssH * dpr);
+    }
+    const pctx = brushPreviewEl.getContext('2d');
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.clearRect(0, 0, cssW, cssH);
+
+    const brush = BRUSHES[drawing.brushId] || BRUSHES.pen;
+    // Map the 1..80 canvas size onto a preview-friendly width (sqrt so small
+    // sizes stay visible and big ones don't swallow the strip).
+    const size = 2 + 22 * Math.sqrt(Math.max(0, drawing.size - 1) / 79);
+    const state = {};
+    const pad = 14;
+    const steps = 44;
+    let prev = null;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const pt = {
+        x: pad + t * (cssW - pad * 2),
+        y: cssH / 2 + Math.sin(t * Math.PI * 1.7 + 0.4) * cssH * 0.18,
+        pressure: 0.12 + 0.88 * Math.sin(t * Math.PI), // swell, then taper
+      };
+      if (prev) brush.stroke(pctx, prev, pt, { size, color: drawing.color, pressure: pt.pressure, state });
+      prev = pt;
+    }
+  }
 
   // ---- size slider ------------------------------------------------------
   const sizeSlider = document.getElementById('sizeSlider');
@@ -194,6 +235,7 @@
   sizeSlider.addEventListener('input', () => {
     drawing.setSize(Number(sizeSlider.value));
     sizeValue.textContent = sizeSlider.value;
+    renderBrushPreview();
   });
 
   // ---- colour swatches ----------------------------------------------
@@ -211,11 +253,13 @@
     drawing.setColor(hex);
     eraserBtn.classList.remove('active');
     drawing.setEraser(false);
+    brushPreviewEl.classList.remove('erasing');
     // Clear active state across both preset swatches and custom palette slots.
     document.querySelectorAll('#colorSwatches .swatch, #customPalette .swatch')
       .forEach((c) => c.classList.remove('active'));
     if (swatchEl) swatchEl.classList.add('active');
     customColor.value = hex;
+    renderBrushPreview();
   }
 
   PRESET_COLORS.forEach((hex, i) => {
@@ -282,7 +326,47 @@
     const nowOn = !eraserBtn.classList.contains('active');
     eraserBtn.classList.toggle('active', nowOn);
     drawing.setEraser(nowOn);
+    brushPreviewEl.classList.toggle('erasing', nowOn);
   });
+
+  // ---- true-size brush cursor ------------------------------------------
+  // A ring matching the exact on-screen brush diameter and current colour,
+  // shown for mouse/stylus (touch keeps the screen clear under the finger).
+  const brushCursor = document.getElementById('brushCursor');
+  const canvasWrapEl = document.getElementById('canvasWrap');
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
+  function updateBrushCursor(e) {
+    const rect = canvasWrapEl.getBoundingClientRect();
+    const scale = rect.width / canvasEl.width; // display px per canvas px
+    const d = Math.max(4, drawing.size * scale);
+    brushCursor.style.width = `${d}px`;
+    brushCursor.style.height = `${d}px`;
+    brushCursor.style.left = `${e.clientX - rect.left}px`;
+    brushCursor.style.top = `${e.clientY - rect.top}px`;
+    brushCursor.classList.toggle('eraser', drawing.isEraser);
+    brushCursor.style.borderColor = drawing.isEraser ? 'rgba(255,255,255,0.9)' : drawing.color;
+    brushCursor.style.background = drawing.isEraser
+      ? 'rgba(255,255,255,0.08)'
+      : hexToRgba(drawing.color, 0.12);
+  }
+
+  canvasEl.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') { brushCursor.hidden = true; return; }
+    updateBrushCursor(e);
+    brushCursor.hidden = false;
+  });
+  canvasEl.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') brushCursor.hidden = true;
+  });
+  canvasEl.addEventListener('pointerleave', () => { brushCursor.hidden = true; });
+  canvasEl.addEventListener('pointercancel', () => { brushCursor.hidden = true; });
 
   // ---- undo / clear -----------------------------------------------------
   document.getElementById('undoBtn').addEventListener('click', () => {
@@ -476,4 +560,8 @@
     }
   });
   scrim.addEventListener('click', closePanels);
+
+  // ---- initial paint ---------------------------------------------------
+  renderBrushPreview();
+  window.addEventListener('resize', renderBrushPreview);
 })();

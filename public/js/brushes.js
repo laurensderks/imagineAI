@@ -1,17 +1,23 @@
 /**
  * brushes.js
  *
- * Defines the 12 brush types. Each brush exposes a `stroke(ctx, p0, p1, opts)`
- * function that paints ONE segment of a stroke (from point p0 to point p1).
- * canvas.js calls this once per pointermove for live drawing, and again for
- * every stored segment when replaying a stroke (undo/resize/redraw).
+ * Five hand-tuned brushes. Each exposes a `stroke(ctx, p0, p1, opts)` function
+ * that paints ONE segment of a stroke (from point p0 to point p1). canvas.js
+ * calls this once per pointermove for live drawing, and again for every stored
+ * segment when replaying a stroke (undo/page switch/redraw).
  *
- * `opts` = { size: number, color: "#rrggbb", pressure: 0..1 }
- * `p0`/`p1` = { x, y } in canvas pixel space.
+ * `opts` = {
+ *   size: number,            // brush size in canvas px
+ *   color: "#rrggbb",
+ *   pressure: 0..1,          // stylus pressure (0.5 for mouse/touch)
+ *   state: {}                // per-stroke scratch object, reset on replay —
+ * }                          //   used for width smoothing so tapers stay organic
  *
- * Brushes that need "wet" per-stroke state (e.g. calligraphy angle smoothing)
- * may store scratch data on `opts.strokeState` (an object that lives for the
- * whole stroke and is provided by canvas.js).
+ * The brushes lean on two tricks for a natural, "expensive" feel:
+ *  - width smoothing: target width follows pressure AND stroke speed, but is
+ *    eased toward across segments, so lines swell and taper like real media;
+ *  - gaussian scatter (spray/soft): particles cluster densely at the centre
+ *    and thin out at the edge, the way real spray and airbrush deposit paint.
  */
 
 (function (global) {
@@ -19,93 +25,105 @@
     return Math.hypot(b.x - a.x, b.y - a.y);
   }
 
-  function withAlpha(hex, alpha) {
-    // Accepts "#rrggbb" and returns an rgba() string.
+  function rgba(hex, alpha) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  function basicLine(ctx, p0, p1, size, color, opacity, cap, blend) {
-    ctx.save();
-    ctx.globalAlpha = opacity;
-    ctx.globalCompositeOperation = blend || 'source-over';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = size;
-    ctx.lineCap = cap || 'round';
+  // Standard normal via Box-Muller — used for organic particle scatter.
+  function gauss() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  }
+
+  // Eases the working width toward `target` across segments (per-stroke state),
+  // so width changes read as smooth swells/tapers rather than steps.
+  function smoothWidth(state, key, target, ease) {
+    const prev = state[key] === undefined ? target : state[key];
+    const w = prev + (target - prev) * ease;
+    state[key] = w;
+    return Math.max(0.4, w);
+  }
+
+  // Fast segments thin the line slightly, like real ink under a quick hand.
+  function speedThin(p0, p1, size, amount) {
+    const t = Math.min(1, dist(p0, p1) / (size * 3));
+    return 1 - amount * t;
+  }
+
+  function strokeSegment(ctx, p0, p1, w, style, alpha) {
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = style;
+    ctx.lineWidth = w;
+    ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    if (p0.x === p1.x && p0.y === p1.y) {
+      // Zero-length segments (a tap) don't render as lines — draw a dot.
+      ctx.fillStyle = style;
+      ctx.beginPath();
+      ctx.arc(p0.x, p0.y, w / 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
     ctx.lineTo(p1.x, p1.y);
     ctx.stroke();
-    ctx.restore();
   }
 
   const BRUSHES = {
-    // 1. Smooth pen — clean, consistent, fully opaque round stroke.
+    // Smooth pen — velvety, weight-shifting line. Width breathes gently with
+    // pressure and hand speed, eased across segments for a lacquered finish.
     pen: {
-      label: 'Smooth Pen',
-      glyph: '✒',
+      label: 'Velvet Pen',
+      icon: '<svg viewBox="0 0 32 32"><path fill="currentColor" stroke="none" d="M4 28 C11 23 13 15 19 10 C22.2 7.2 26 5 29 4 C24.5 7.5 21.5 11 19 15 C16 20 12 26 4 28 Z"/></svg>',
       stroke(ctx, p0, p1, o) {
-        basicLine(ctx, p0, p1, o.size, o.color, 1, 'round');
+        const target = o.size * (0.6 + 0.4 * o.pressure) * speedThin(p0, p1, o.size, 0.3);
+        const w = smoothWidth(o.state, 'penW', target, 0.3);
+        ctx.save();
+        strokeSegment(ctx, p0, p1, w, o.color, 1);
+        ctx.restore();
       },
     },
 
-    // 2. Marker — broad flat translucent stroke that darkens on overlap.
-    marker: {
-      label: 'Marker',
-      glyph: '🖊',
-      stroke(ctx, p0, p1, o) {
-        basicLine(ctx, p0, p1, o.size * 1.6, o.color, 0.55, 'square', 'multiply');
-      },
-    },
-
-    // 3. Pencil — thin, grainy line built from several jittered light passes.
-    pencil: {
-      label: 'Pencil',
-      glyph: '✏',
-      stroke(ctx, p0, p1, o) {
-        const passes = 3;
-        for (let i = 0; i < passes; i++) {
-          const jitter = o.size * 0.12;
-          const jp0 = { x: p0.x + (Math.random() - 0.5) * jitter, y: p0.y + (Math.random() - 0.5) * jitter };
-          const jp1 = { x: p1.x + (Math.random() - 0.5) * jitter, y: p1.y + (Math.random() - 0.5) * jitter };
-          basicLine(ctx, jp0, jp1, Math.max(1, o.size * 0.22), o.color, 0.35);
-        }
-      },
-    },
-
-    // 4. Ink — bold, high-contrast, pressure-tapered, tiny bleed.
+    // Ink — expressive nib. Strong pressure/speed response with a faint wet
+    // halo under a crisp core, like dense ink settling into paper.
     ink: {
-      label: 'Ink',
-      glyph: '🖋',
+      label: 'Wet Ink',
+      icon: '<svg viewBox="0 0 32 32"><path fill="currentColor" stroke="none" d="M3.5 25 C9 25.5 14.5 23.5 18.5 19.5 C22.5 15.5 25.5 10.5 28.5 4.5 C28 12 25 18.5 20 22.8 C15.3 26.8 8.7 27.6 3.5 25 Z"/><circle fill="currentColor" stroke="none" cx="25.5" cy="24.5" r="2"/><circle fill="currentColor" stroke="none" cx="29" cy="20.5" r="1.2"/></svg>',
       stroke(ctx, p0, p1, o) {
-        const w = o.size * (0.6 + 0.4 * o.pressure);
+        const target = o.size * (0.35 + 0.8 * o.pressure) * speedThin(p0, p1, o.size, 0.45);
+        const w = smoothWidth(o.state, 'inkW', target, 0.35);
         ctx.save();
-        ctx.shadowColor = o.color;
-        ctx.shadowBlur = w * 0.15;
-        basicLine(ctx, p0, p1, w, o.color, 1, 'round');
+        strokeSegment(ctx, p0, p1, w * 1.7, o.color, 0.14); // soft bleed halo
+        strokeSegment(ctx, p0, p1, w, o.color, 1);          // dense core
         ctx.restore();
       },
     },
 
-    // 5. Soft brush — feathered airbrush-style dabs stamped along the path.
+    // Soft brush — airbrush with a gaussian-falloff veil; colour builds up in
+    // sheer layers, so slow passes deepen and fast passes stay whisper-light.
     soft: {
-      label: 'Soft Brush',
-      glyph: '☁',
+      label: 'Cloud',
+      icon: '<svg viewBox="0 0 32 32"><circle fill="currentColor" stroke="none" cx="16" cy="16" r="12.5" opacity="0.16"/><circle fill="currentColor" stroke="none" cx="16" cy="16" r="9" opacity="0.32"/><circle fill="currentColor" stroke="none" cx="16" cy="16" r="5.5" opacity="0.9"/></svg>',
       stroke(ctx, p0, p1, o) {
-        const steps = Math.max(1, Math.ceil(dist(p0, p1) / (o.size * 0.2)));
-        const r = o.size * 0.9;
+        const r = o.size * (0.85 + 0.35 * o.pressure);
+        const step = Math.max(1, r * 0.18);
+        const steps = Math.max(1, Math.ceil(dist(p0, p1) / step));
+        const a = 0.05 + 0.07 * o.pressure;
         ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
         for (let i = 0; i <= steps; i++) {
           const t = i / steps;
           const x = p0.x + (p1.x - p0.x) * t;
           const y = p0.y + (p1.y - p0.y) * t;
           const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-          grad.addColorStop(0, withAlpha(o.color, 0.18));
-          grad.addColorStop(1, withAlpha(o.color, 0));
+          grad.addColorStop(0, rgba(o.color, a));
+          grad.addColorStop(0.55, rgba(o.color, a * 0.5));
+          grad.addColorStop(1, rgba(o.color, 0));
           ctx.fillStyle = grad;
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -115,104 +133,29 @@
       },
     },
 
-    // 6. Watercolour — irregular translucent pools that pool and bleed.
-    watercolour: {
-      label: 'Watercolour',
-      glyph: '🎨',
-      stroke(ctx, p0, p1, o) {
-        const steps = Math.max(1, Math.ceil(dist(p0, p1) / (o.size * 0.3)));
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        for (let i = 0; i <= steps; i++) {
-          const t = i / steps;
-          const x = p0.x + (p1.x - p0.x) * t + (Math.random() - 0.5) * o.size * 0.4;
-          const y = p0.y + (p1.y - p0.y) * t + (Math.random() - 0.5) * o.size * 0.4;
-          const r = o.size * (0.6 + Math.random() * 0.6);
-          const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-          grad.addColorStop(0, withAlpha(o.color, 0.12));
-          grad.addColorStop(0.7, withAlpha(o.color, 0.08));
-          grad.addColorStop(1, withAlpha(o.color, 0));
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      },
-    },
-
-    // 7. Charcoal — dark grainy texture from many scattered short strokes.
-    charcoal: {
-      label: 'Charcoal',
-      glyph: '⚫',
-      stroke(ctx, p0, p1, o) {
-        const segLen = Math.max(dist(p0, p1), 1);
-        const grains = Math.max(4, Math.round(segLen * 0.6 + o.size * 0.5));
-        const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        for (let i = 0; i < grains; i++) {
-          const t = Math.random();
-          const x = p0.x + (p1.x - p0.x) * t;
-          const y = p0.y + (p1.y - p0.y) * t;
-          const perp = (Math.random() - 0.5) * o.size * 0.8;
-          const gx = x + Math.cos(angle + Math.PI / 2) * perp;
-          const gy = y + Math.sin(angle + Math.PI / 2) * perp;
-          const grainSize = Math.random() * o.size * 0.18 + 0.5;
-          ctx.globalAlpha = 0.15 + Math.random() * 0.35;
-          ctx.fillStyle = o.color;
-          ctx.beginPath();
-          ctx.arc(gx, gy, grainSize, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      },
-    },
-
-    // 8. Crayon — waxy, slightly patchy strokes with visible paper grain gaps.
-    crayon: {
-      label: 'Crayon',
-      glyph: '🖍',
-      stroke(ctx, p0, p1, o) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        const segLen = Math.max(dist(p0, p1), 1);
-        const dabs = Math.max(2, Math.round(segLen / 2));
-        for (let i = 0; i <= dabs; i++) {
-          const t = i / dabs;
-          const x = p0.x + (p1.x - p0.x) * t + (Math.random() - 0.5) * o.size * 0.25;
-          const y = p0.y + (p1.y - p0.y) * t + (Math.random() - 0.5) * o.size * 0.25;
-          if (Math.random() < 0.15) continue; // gaps = waxy texture
-          ctx.globalAlpha = 0.45 + Math.random() * 0.35;
-          ctx.fillStyle = o.color;
-          ctx.beginPath();
-          ctx.arc(x, y, o.size * 0.32, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      },
-    },
-
-    // 9. Spray paint — particle spatter scattered within a radius.
+    // Spray paint — gaussian mist: particles crowd the centre and feather out,
+    // with fine grain sizes, like a well-shaken can at arm's length.
     spray: {
-      label: 'Spray Paint',
-      glyph: '💨',
+      label: 'Mist',
+      icon: '<svg viewBox="0 0 32 32"><g fill="currentColor" stroke="none"><circle cx="6" cy="26" r="1.9" opacity="0.95"/><circle cx="10" cy="22" r="1.7" opacity="0.9"/><circle cx="14" cy="18" r="1.6" opacity="0.9"/><circle cx="18" cy="14" r="1.5" opacity="0.9"/><circle cx="22" cy="10" r="1.4" opacity="0.9"/><circle cx="26" cy="6" r="1.3" opacity="0.9"/><circle cx="10" cy="27" r="1" opacity="0.4"/><circle cx="6" cy="20.5" r="1" opacity="0.45"/><circle cx="15" cy="23" r="1.1" opacity="0.4"/><circle cx="11" cy="16" r="1" opacity="0.4"/><circle cx="19" cy="19" r="1.1" opacity="0.4"/><circle cx="16" cy="10" r="1" opacity="0.4"/><circle cx="23" cy="15" r="1" opacity="0.4"/><circle cx="27" cy="11" r="0.9" opacity="0.4"/><circle cx="21" cy="5" r="0.9" opacity="0.35"/><circle cx="25" cy="2.8" r="0.8" opacity="0.35"/></g></svg>',
       stroke(ctx, p0, p1, o) {
-        const steps = Math.max(1, Math.ceil(dist(p0, p1) / (o.size * 0.25))) ;
-        const radius = o.size * 1.4;
+        const radius = o.size * 1.35;
+        const step = Math.max(1, radius * 0.25);
+        const steps = Math.max(1, Math.ceil(dist(p0, p1) / step));
+        const perStep = Math.round(radius * (0.6 + 0.8 * o.pressure));
         ctx.save();
         ctx.fillStyle = o.color;
         for (let s = 0; s <= steps; s++) {
           const t = s / steps;
           const cx = p0.x + (p1.x - p0.x) * t;
           const cy = p0.y + (p1.y - p0.y) * t;
-          const particles = Math.round(radius * 0.8);
-          for (let i = 0; i < particles; i++) {
-            const a = Math.random() * Math.PI * 2;
-            const r = Math.random() * radius;
-            ctx.globalAlpha = 0.25 + Math.random() * 0.35;
+          for (let i = 0; i < perStep; i++) {
+            const rr = Math.min(radius, Math.abs(gauss()) * radius * 0.45);
+            const ang = Math.random() * Math.PI * 2;
+            const grain = 0.3 + Math.random() * Math.random() * 1.1;
+            ctx.globalAlpha = 0.16 + Math.random() * 0.3;
             ctx.beginPath();
-            ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, Math.random() * 1.2 + 0.3, 0, Math.PI * 2);
+            ctx.arc(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr, grain, 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -220,41 +163,15 @@
       },
     },
 
-    // 10. Calligraphy — fixed-angle flat nib; width depends on stroke direction.
-    calligraphy: {
-      label: 'Calligraphy',
-      glyph: '🖋',
-      stroke(ctx, p0, p1, o) {
-        const nibAngle = Math.PI / 4; // 45° nib
-        const dx = p1.x - p0.x;
-        const dy = p1.y - p0.y;
-        const strokeAngle = Math.atan2(dy, dx);
-        const diff = Math.abs(Math.sin(strokeAngle - nibAngle));
-        const w = Math.max(o.size * 0.15, o.size * diff);
-        const nx = Math.cos(nibAngle) * (w / 2);
-        const ny = Math.sin(nibAngle) * (w / 2);
-
-        ctx.save();
-        ctx.globalAlpha = 0.95;
-        ctx.fillStyle = o.color;
-        ctx.beginPath();
-        ctx.moveTo(p0.x - nx, p0.y - ny);
-        ctx.lineTo(p0.x + nx, p0.y + ny);
-        ctx.lineTo(p1.x + nx, p1.y + ny);
-        ctx.lineTo(p1.x - nx, p1.y - ny);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      },
-    },
-
-    // 11. Pixel brush — hard-edged, grid-snapped squares (retro pixel art).
+    // Pixel — precise, gap-free grid strokes. Cells are deduped per stroke so
+    // lines stay crisp and even at any drawing speed.
     pixel: {
-      label: 'Pixel',
-      glyph: '▪',
+      label: '8-Bit',
+      icon: '<svg viewBox="0 0 32 32"><g fill="currentColor" stroke="none"><rect x="3" y="23" width="6" height="6" rx="1"/><rect x="9" y="17" width="6" height="6" rx="1"/><rect x="15" y="11" width="6" height="6" rx="1"/><rect x="21" y="5" width="6" height="6" rx="1"/><rect x="9" y="23" width="6" height="6" rx="1" opacity="0.35"/><rect x="15" y="17" width="6" height="6" rx="1" opacity="0.35"/><rect x="21" y="11" width="6" height="6" rx="1" opacity="0.35"/></g></svg>',
       stroke(ctx, p0, p1, o) {
-        const grid = Math.max(4, Math.round(o.size / 2));
-        const steps = Math.max(1, Math.ceil(dist(p0, p1) / (grid * 0.6)));
+        const grid = Math.max(3, Math.round(o.size / 2));
+        const cells = (o.state.pixelCells = o.state.pixelCells || {});
+        const steps = Math.max(1, Math.ceil(dist(p0, p1) / (grid * 0.35)));
         ctx.save();
         ctx.imageSmoothingEnabled = false;
         ctx.fillStyle = o.color;
@@ -264,27 +181,11 @@
           const y = p0.y + (p1.y - p0.y) * t;
           const gx = Math.floor(x / grid) * grid;
           const gy = Math.floor(y / grid) * grid;
+          const key = gx + ',' + gy;
+          if (cells[key]) continue;
+          cells[key] = true;
           ctx.fillRect(gx, gy, grid, grid);
         }
-        ctx.restore();
-      },
-    },
-
-    // 12. Glow brush — bright core with a soft halo, built from shadowBlur
-    // rather than additive ('lighter') compositing so it stays visible on
-    // both light and dark canvas backgrounds.
-    glow: {
-      label: 'Glow',
-      glyph: '✨',
-      stroke(ctx, p0, p1, o) {
-        ctx.save();
-        ctx.shadowColor = o.color;
-        ctx.shadowBlur = o.size * 1.8;
-        basicLine(ctx, p0, p1, o.size * 0.6, o.color, 0.5, 'round');
-        ctx.shadowBlur = o.size * 0.8;
-        basicLine(ctx, p0, p1, o.size * 0.28, o.color, 0.95, 'round');
-        ctx.shadowBlur = 0;
-        basicLine(ctx, p0, p1, o.size * 0.12, '#ffffff', 0.9, 'round');
         ctx.restore();
       },
     },
