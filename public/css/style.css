@@ -345,6 +345,30 @@ input[type="range"]::-moz-range-thumb {
 .palette-save-btn svg { width: 13px; height: 13px; }
 .palette-save-btn:hover { color: var(--text); border-color: #3a3d4d; }
 
+.save-image-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.save-image-btn svg { width: 17px; height: 17px; }
+.save-image-btn:hover { background: #262835; border-color: #3a3d4d; }
+.save-image-btn:active { transform: scale(0.98); }
+.save-image-btn.saved {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
 .custom-palette { margin-top: 8px; }
 .swatch.empty {
   cursor: default;

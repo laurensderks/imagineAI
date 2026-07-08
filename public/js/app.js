@@ -323,6 +323,63 @@
   paletteSaveBtn.addEventListener('click', saveCurrentColor);
   renderPalette();
 
+  // ---- save current page image to the device --------------------------
+  // iPad Safari ignores the <a download> attribute, so on Apple touch
+  // devices we use the Web Share sheet (Save to Photos / Files). Desktop
+  // gets a direct download.
+  const saveImageBtn = document.getElementById('saveImageBtn');
+
+  function isAppleTouch() {
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
+  }
+
+  function flashSaved() {
+    const original = saveImageBtn.querySelector('span').textContent;
+    saveImageBtn.classList.add('saved');
+    saveImageBtn.querySelector('span').textContent = 'Saved!';
+    setTimeout(() => {
+      saveImageBtn.classList.remove('saved');
+      saveImageBtn.querySelector('span').textContent = original;
+    }, 1600);
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 200);
+  }
+
+  saveImageBtn.addEventListener('click', () => {
+    const filename = `imagineai-page-${pageManager.currentIndex + 1}.png`;
+    drawing.canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      // Prefer the native share sheet on Apple touch devices so users can
+      // save straight to Photos or Files.
+      if (isAppleTouch() && navigator.canShare) {
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'ImagineAI drawing' });
+            flashSaved();
+            return;
+          } catch (err) {
+            if (err && err.name === 'AbortError') return; // user cancelled — don't also download
+            // any other failure falls through to a direct download
+          }
+        }
+      }
+      downloadBlob(blob, filename);
+      flashSaved();
+    }, 'image/png');
+  });
+
   // ---- eraser ---------------------------------------------------------
   const eraserBtn = document.getElementById('eraserBtn');
   eraserBtn.addEventListener('click', () => {
