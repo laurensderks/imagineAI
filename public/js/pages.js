@@ -62,6 +62,23 @@
       this._updateUI();
       if (typeof this.onPageChange === 'function') this.onPageChange();
     }
+
+    // Returns the up-to-date pages + current index (re-capturing the live
+    // history first, since clear() swaps in a fresh array). Used by autosave.
+    snapshot() {
+      this.pages[this.currentIndex] = this.drawing.history;
+      return { pages: this.pages, index: this.currentIndex };
+    }
+
+    // Replaces all pages with restored histories and shows the given page.
+    restore(pages, index) {
+      this.pages = Array.from({ length: PAGE_COUNT }, (_, i) =>
+        Array.isArray(pages[i]) ? pages[i] : []
+      );
+      this.currentIndex = Math.min(Math.max(0, index | 0), PAGE_COUNT - 1);
+      this.drawing.loadPage(this.pages[this.currentIndex]);
+      this._updateUI();
+    }
   }
 
   global.PageManager = PageManager;

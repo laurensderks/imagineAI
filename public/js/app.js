@@ -149,7 +149,7 @@
   // ---- canvas ---------------------------------------------------------
   const canvasEl = document.getElementById('drawCanvas');
   const drawing = new DrawingCanvas(canvasEl);
-  drawing.onStrokeEnd = updateRenderAvailability;
+  drawing.onStrokeEnd = () => { updateRenderAvailability(); scheduleSave(); };
 
   // ---- zoom (+/- buttons, mouse wheel, two-finger pinch) ---------------
   new ZoomController({
@@ -162,12 +162,12 @@
   });
 
   // ---- pages (5 independent doodles, switchable at any time) ----------
-  new PageManager({
+  const pageManager = new PageManager({
     drawing,
     dotsContainer: document.getElementById('pageDots'),
     prevBtn: document.getElementById('prevPageBtn'),
     nextBtn: document.getElementById('nextPageBtn'),
-    onPageChange: () => updateRenderAvailability(),
+    onPageChange: () => { updateRenderAvailability(); scheduleSave(); },
   });
 
   // ---- brush grid -----------------------------------------------------
@@ -188,6 +188,7 @@
       btn.classList.add('active');
       brushNameEl.textContent = b.label;
       renderBrushPreview();
+      scheduleSave();
     });
     brushGrid.appendChild(btn);
   });
@@ -236,6 +237,7 @@
     drawing.setSize(Number(sizeSlider.value));
     sizeValue.textContent = sizeSlider.value;
     renderBrushPreview();
+    scheduleSave();
   });
 
   // ---- colour swatches ----------------------------------------------
@@ -260,6 +262,7 @@
     if (swatchEl) swatchEl.classList.add('active');
     customColor.value = hex;
     renderBrushPreview();
+    scheduleSave();
   }
 
   PRESET_COLORS.forEach((hex, i) => {
@@ -372,12 +375,14 @@
   document.getElementById('undoBtn').addEventListener('click', () => {
     drawing.undo();
     updateRenderAvailability();
+    scheduleSave();
   });
   document.getElementById('clearBtn').addEventListener('click', () => {
     if (!drawing.hasDrawing()) return;
     if (window.confirm('Clear the entire canvas? This cannot be undone.')) {
       drawing.clear();
       updateRenderAvailability();
+      scheduleSave();
     }
   });
 
@@ -561,7 +566,88 @@
   });
   scrim.addEventListener('click', closePanels);
 
+  // ---- session autosave / restore --------------------------------------
+  // Persists all 5 pages, the current page, brush, colour, and size to
+  // localStorage — saved when the tab is hidden/closed plus a debounced
+  // safety-net save after every change — and restored on next visit.
+  const SESSION_KEY = 'imagineai.session';
+
+  function saveSession() {
+    try {
+      const snap = pageManager.snapshot();
+      const data = {
+        v: 1,
+        brush: drawing.brushId,
+        color: drawing.color,
+        size: drawing.size,
+        page: snap.index,
+        // Compact per-stroke form: points become [x, y, pressure] triples
+        // with rounded coords, keeping five full pages well inside quota.
+        pages: snap.pages.map((strokes) => strokes.map((st) => ({
+          t: st.tool,
+          b: st.brushId,
+          c: st.color,
+          s: st.size,
+          p: st.points.map((pt) => [
+            Math.round(pt.x * 10) / 10,
+            Math.round(pt.y * 10) / 10,
+            Math.round((pt.pressure != null ? pt.pressure : 0.5) * 100) / 100,
+          ]),
+        }))),
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+    } catch (_) { /* storage full or blocked — skip silently */ }
+  }
+
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveSession, 1500);
+  }
+
+  function restoreSession() {
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (_) { /* corrupt — ignore */ }
+    if (!data || data.v !== 1) return;
+
+    if (Array.isArray(data.pages)) {
+      const pages = data.pages.map((pg) => (Array.isArray(pg) ? pg : []).map((st) => ({
+        tool: st.t === 'eraser' ? 'eraser' : 'brush',
+        brushId: typeof st.b === 'string' ? st.b : 'pen',
+        color: typeof st.c === 'string' ? st.c : '#111111',
+        size: typeof st.s === 'number' ? st.s : 14,
+        points: (Array.isArray(st.p) ? st.p : [])
+          .filter((a) => Array.isArray(a) && a.length >= 2)
+          .map((a) => ({ x: a[0], y: a[1], pressure: a[2] != null ? a[2] : 0.5 })),
+      })).filter((st) => st.points.length > 0));
+      pageManager.restore(pages, data.page || 0);
+    }
+
+    if (typeof data.brush === 'string' && BRUSHES[data.brush]) {
+      const btn = [...brushGrid.children].find((b) => b.dataset.brush === data.brush);
+      if (btn) btn.click();
+    }
+    if (typeof data.size === 'number' && data.size >= 1 && data.size <= 80) {
+      sizeSlider.value = data.size;
+      sizeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (typeof data.color === 'string' && /^#[0-9a-f]{6}$/i.test(data.color)) {
+      const sw = [...colorSwatches.children, ...customPalette.children]
+        .find((s) => s.title && s.title.toLowerCase() === data.color.toLowerCase());
+      selectColor(data.color, sw || null);
+    }
+    updateRenderAvailability();
+  }
+
+  // visibilitychange(hidden) is the reliable "user is leaving" signal on
+  // both desktop and iPad; pagehide is the belt-and-braces fallback.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveSession();
+  });
+  window.addEventListener('pagehide', saveSession);
+
   // ---- initial paint ---------------------------------------------------
+  restoreSession();
   renderBrushPreview();
   window.addEventListener('resize', renderBrushPreview);
 })();
