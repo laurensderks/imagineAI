@@ -170,6 +170,17 @@
     onPageChange: () => { updateRenderAvailability(); scheduleSave(); },
   });
 
+  // ---- trace (load a reference photo and draw over it) ----------------
+  const traceCtrl = new TraceController({
+    canvasWrap: document.getElementById('canvasWrap'),
+    imgEl: document.getElementById('traceImg'),
+    panel: document.getElementById('tracePanel'),
+    fileInput: document.getElementById('traceFile'),
+    drawing,
+    onChange: () => { updateRenderAvailability(); updateSaveAvailability(); scheduleSave(); },
+  });
+  document.getElementById('traceOpenBtn').addEventListener('click', () => traceCtrl.openPicker());
+
   // ---- brush grid -----------------------------------------------------
   const brushGrid = document.getElementById('brushGrid');
   const brushNameEl = document.getElementById('brushName');
@@ -328,6 +339,16 @@
   // devices we use the Web Share sheet (Save to Photos / Files). Desktop
   // gets a direct download.
   const saveImageBtn = document.getElementById('saveImageBtn');
+  const saveHint = document.getElementById('saveHint');
+
+  // Saving is blocked while a trace reference is active — finish (remove) the
+  // trace first, so you only ever save the finished drawing.
+  function updateSaveAvailability() {
+    const tracing = traceCtrl.hasImage();
+    saveImageBtn.disabled = tracing;
+    saveImageBtn.title = tracing ? 'Remove the trace image before saving' : '';
+    saveHint.hidden = !tracing;
+  }
 
   function isAppleTouch() {
     return (
@@ -357,6 +378,7 @@
   }
 
   saveImageBtn.addEventListener('click', () => {
+    if (saveImageBtn.disabled) return;
     const filename = `imagineai-page-${pageManager.currentIndex + 1}.png`;
     drawing.canvas.toBlob(async (blob) => {
       if (!blob) return;
@@ -506,7 +528,9 @@
   // ---- render button availability ----------------------------------
   const renderBtn = document.getElementById('renderBtn');
   function updateRenderAvailability() {
-    renderBtn.disabled = !selectedStyle || !drawing.hasDrawing();
+    const tracing = traceCtrl.hasImage();
+    renderBtn.disabled = !selectedStyle || !drawing.hasDrawing() || tracing;
+    renderBtn.title = tracing ? 'Remove the trace image before rendering' : '';
   }
   updateRenderAvailability();
 
@@ -651,6 +675,7 @@
             Math.round((pt.pressure != null ? pt.pressure : 0.5) * 100) / 100,
           ]),
         }))),
+        trace: traceCtrl.getState(), // reference image + geometry, or null
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(data));
     } catch (_) { /* storage full or blocked — skip silently */ }
@@ -693,7 +718,9 @@
         .find((s) => s.title && s.title.toLowerCase() === data.color.toLowerCase());
       selectColor(data.color, sw || null);
     }
+    if (data.trace) traceCtrl.restore(data.trace);
     updateRenderAvailability();
+    updateSaveAvailability();
   }
 
   // visibilitychange(hidden) is the reliable "user is leaving" signal on

@@ -41,7 +41,8 @@
       this.history = [];
       this.currentStroke = null;
       this.activePointerId = null;
-      this._suspended = false; // true while a multi-touch gesture (e.g. pinch-zoom) is active
+      this._suspended = false;  // true during a multi-touch gesture (pinch-zoom)
+      this._traceBlock = false; // true while adjusting a trace reference image
 
       this._bindEvents();
       this.redrawAll();
@@ -69,6 +70,13 @@
     setSuspended(suspended) {
       this._suspended = suspended;
       if (suspended) this.cancelActiveStroke();
+    }
+
+    // Blocks new strokes while a trace image is being positioned, so taps
+    // outside the reference don't draw. Independent of pinch-zoom's suspend.
+    setTraceBlock(blocked) {
+      this._traceBlock = blocked;
+      if (blocked) this.cancelActiveStroke();
     }
 
     undo() {
@@ -130,7 +138,7 @@
     }
 
     _onPointerDown(e) {
-      if (this._suspended) return;
+      if (this._suspended || this._traceBlock) return;
       e.preventDefault();
 
       // A second pointer landing while one is already active means this is a
