@@ -164,22 +164,22 @@
   // ---- pages (5 independent doodles, switchable at any time) ----------
   const pageManager = new PageManager({
     drawing,
-    dotsContainer: document.getElementById('pageDots'),
-    prevBtn: document.getElementById('prevPageBtn'),
-    nextBtn: document.getElementById('nextPageBtn'),
+    tabsContainer: document.getElementById('pageTabs'),
     onPageChange: () => { updateRenderAvailability(); scheduleSave(); },
   });
 
   // ---- trace (load a reference photo and draw over it) ----------------
+  const traceOpenBtn = document.getElementById('traceOpenBtn');
   const traceCtrl = new TraceController({
     canvasWrap: document.getElementById('canvasWrap'),
     imgEl: document.getElementById('traceImg'),
     panel: document.getElementById('tracePanel'),
     fileInput: document.getElementById('traceFile'),
+    openBtn: traceOpenBtn, // hidden while a trace is active to save space
     drawing,
     onChange: () => { updateRenderAvailability(); updateSaveAvailability(); scheduleSave(); },
   });
-  document.getElementById('traceOpenBtn').addEventListener('click', () => traceCtrl.openPicker());
+  traceOpenBtn.addEventListener('click', () => traceCtrl.openPicker());
 
   // ---- brush grid -----------------------------------------------------
   const brushGrid = document.getElementById('brushGrid');

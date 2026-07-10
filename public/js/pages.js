@@ -8,48 +8,38 @@
  */
 
 (function (global) {
-  const PAGE_COUNT = 5;
+  const PAGE_COUNT = 4;
 
   class PageManager {
-    constructor({ drawing, dotsContainer, prevBtn, nextBtn, onPageChange }) {
+    constructor({ drawing, tabsContainer, onPageChange }) {
       this.drawing = drawing;
-      this.dotsContainer = dotsContainer;
-      this.prevBtn = prevBtn;
-      this.nextBtn = nextBtn;
+      this.tabsContainer = tabsContainer;
       this.onPageChange = onPageChange;
 
       // Each page owns its own stroke history array.
       this.pages = Array.from({ length: PAGE_COUNT }, () => []);
       this.currentIndex = 0;
 
-      this._renderDots();
-      this._bindEvents();
+      this._renderTabs();
       this._updateUI();
     }
 
-    _renderDots() {
-      this.dotsContainer.innerHTML = '';
-      this.dots = this.pages.map((_, i) => {
+    _renderTabs() {
+      this.tabsContainer.innerHTML = '';
+      this.tabs = this.pages.map((_, i) => {
         const btn = document.createElement('button');
-        btn.className = 'page-dot';
+        btn.className = 'page-tab';
         btn.type = 'button';
         btn.textContent = String(i + 1);
         btn.setAttribute('aria-label', `Go to page ${i + 1}`);
         btn.addEventListener('click', () => this.goTo(i));
-        this.dotsContainer.appendChild(btn);
+        this.tabsContainer.appendChild(btn);
         return btn;
       });
     }
 
-    _bindEvents() {
-      if (this.prevBtn) this.prevBtn.addEventListener('click', () => this.goTo(this.currentIndex - 1));
-      if (this.nextBtn) this.nextBtn.addEventListener('click', () => this.goTo(this.currentIndex + 1));
-    }
-
     _updateUI() {
-      this.dots.forEach((dot, i) => dot.classList.toggle('active', i === this.currentIndex));
-      if (this.prevBtn) this.prevBtn.disabled = this.currentIndex === 0;
-      if (this.nextBtn) this.nextBtn.disabled = this.currentIndex === this.pages.length - 1;
+      this.tabs.forEach((tab, i) => tab.classList.toggle('active', i === this.currentIndex));
     }
 
     goTo(index) {

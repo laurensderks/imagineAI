@@ -22,11 +22,12 @@
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
   class TraceController {
-    constructor({ canvasWrap, imgEl, panel, fileInput, drawing, onChange }) {
+    constructor({ canvasWrap, imgEl, panel, fileInput, openBtn, drawing, onChange }) {
       this.canvasWrap = canvasWrap;
       this.img = imgEl;
       this.panel = panel;
       this.fileInput = fileInput;
+      this.openBtn = openBtn || null;
       this.drawing = drawing;
       this.onChange = onChange || (() => {});
 
@@ -199,6 +200,9 @@
     _syncPanel() {
       const on = !!this.state;
       this.panel.hidden = !on;
+      // The "Trace a photo" button is redundant while an image is loaded —
+      // hide it so the controls sit higher and save space.
+      if (this.openBtn) this.openBtn.hidden = on;
       // Block canvas drawing while adjusting (unlocked); allow it when locked
       // or when there's no image. Called only when this state changes.
       this.drawing.setTraceBlock(on && !this.state.locked);
