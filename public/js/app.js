@@ -465,6 +465,15 @@
     penOnlyBtn.addEventListener('click', () => { setPenOnly(!drawing.isPenOnly()); scheduleSave(); });
   }
 
+  // Suppress browser-initiated touch gestures on the drawing surface. On iPad
+  // Safari an un-consumed swipe can scroll the page or exit full screen even
+  // when the finger isn't drawing — so block touchmove everywhere except the
+  // tool panels and modals, which keep their native scrolling.
+  document.addEventListener('touchmove', (e) => {
+    if (e.target.closest && e.target.closest('.panel, .result-overlay, input, textarea, select')) return;
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+
   // ---- full screen -----------------------------------------------------
   // Uses the standard Fullscreen API with webkit fallbacks so it works on
   // desktop browsers and iPad Safari (which is webkit-prefixed). iPhone

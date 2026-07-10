@@ -477,6 +477,8 @@ input[type="range"]::-moz-range-thumb {
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  touch-action: none;        /* the stage handles its own touch — no browser scroll/exit gesture */
+  overscroll-behavior: none;
   background:
     radial-gradient(circle at 30% 20%, rgba(124, 92, 255, 0.06), transparent 45%),
     radial-gradient(circle at 80% 80%, rgba(52, 217, 200, 0.05), transparent 45%),

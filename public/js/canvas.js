@@ -146,7 +146,9 @@
 
     _onPointerDown(e) {
       if (this._suspended || this._traceBlock) return;
-      if (this._penOnly && e.pointerType === 'touch') return; // finger ignored
+      // In pen-only mode swallow the finger entirely (preventDefault) rather
+      // than just skipping it, so it can't feed a browser swipe/exit gesture.
+      if (this._penOnly && e.pointerType === 'touch') { if (e.cancelable) e.preventDefault(); return; }
       e.preventDefault();
 
       // A second pointer landing while one is already active means this is a
