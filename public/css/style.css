@@ -113,6 +113,11 @@ svg {
 }
 .icon-btn:hover { background: #262835; border-color: #383b4a; }
 .icon-btn:active { transform: scale(0.94); }
+.icon-btn.active {
+  background: rgba(124, 92, 255, 0.16);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
 .only-mobile { display: none; }
 

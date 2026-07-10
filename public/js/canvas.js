@@ -43,6 +43,7 @@
       this.activePointerId = null;
       this._suspended = false;  // true during a multi-touch gesture (pinch-zoom)
       this._traceBlock = false; // true while adjusting a trace reference image
+      this._penOnly = false;    // true = only a stylus draws; finger is ignored
 
       this._bindEvents();
       this.redrawAll();
@@ -78,6 +79,12 @@
       this._traceBlock = blocked;
       if (blocked) this.cancelActiveStroke();
     }
+
+    // Pen-only mode: only a stylus ('pen') may draw; finger touches are
+    // ignored. Lets people draw in iPad fullscreen without a stray finger
+    // stroke (and finger swipes stay free for the system's own gestures).
+    setPenOnly(on) { this._penOnly = !!on; }
+    isPenOnly() { return this._penOnly; }
 
     undo() {
       this.history.pop();
@@ -139,6 +146,7 @@
 
     _onPointerDown(e) {
       if (this._suspended || this._traceBlock) return;
+      if (this._penOnly && e.pointerType === 'touch') return; // finger ignored
       e.preventDefault();
 
       // A second pointer landing while one is already active means this is a

@@ -450,6 +450,21 @@
   canvasEl.addEventListener('pointerleave', () => { brushCursor.hidden = true; });
   canvasEl.addEventListener('pointercancel', () => { brushCursor.hidden = true; });
 
+  // ---- pencil-only mode (touch devices) --------------------------------
+  // On touch devices, let the user restrict drawing to a stylus so a stray
+  // finger (or iPad Safari's system swipe gestures) doesn't leave marks.
+  const penOnlyBtn = document.getElementById('penOnlyBtn');
+  const hasTouch = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+  function setPenOnly(on) {
+    drawing.setPenOnly(on);
+    penOnlyBtn.classList.toggle('active', on);
+    penOnlyBtn.title = on ? 'Pencil only — tap to allow finger' : 'Draw with pencil only';
+  }
+  if (hasTouch) {
+    penOnlyBtn.hidden = false;
+    penOnlyBtn.addEventListener('click', () => { setPenOnly(!drawing.isPenOnly()); scheduleSave(); });
+  }
+
   // ---- full screen -----------------------------------------------------
   // Uses the standard Fullscreen API with webkit fallbacks so it works on
   // desktop browsers and iPad Safari (which is webkit-prefixed). iPhone
@@ -697,6 +712,7 @@
         brush: drawing.brushId,
         color: drawing.color,
         size: drawing.size,
+        penOnly: drawing.isPenOnly(),
         page: snap.index,
         // Compact per-stroke form: points become [x, y, pressure] triples
         // with rounded coords, keeping five full pages well inside quota.
@@ -755,6 +771,7 @@
       selectColor(data.color, sw || null);
     }
     if (data.trace) traceCtrl.restore(data.trace);
+    if (hasTouch && data.penOnly) setPenOnly(true);
     updateRenderAvailability();
     updateSaveAvailability();
   }
