@@ -450,6 +450,41 @@
   canvasEl.addEventListener('pointerleave', () => { brushCursor.hidden = true; });
   canvasEl.addEventListener('pointercancel', () => { brushCursor.hidden = true; });
 
+  // ---- full screen -----------------------------------------------------
+  // Uses the standard Fullscreen API with webkit fallbacks so it works on
+  // desktop browsers and iPad Safari (which is webkit-prefixed). iPhone
+  // Safari doesn't support element fullscreen, so the button hides there.
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const fsRoot = document.documentElement;
+  const fsSupported = !!(
+    fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen ||
+    document.fullscreenEnabled || document.webkitFullscreenEnabled
+  );
+
+  function fsElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+  function updateFsButton() {
+    fullscreenBtn.classList.toggle('is-fullscreen', !!fsElement());
+    fullscreenBtn.title = fsElement() ? 'Exit full screen' : 'Full screen';
+  }
+  if (!fsSupported) {
+    fullscreenBtn.hidden = true;
+  } else {
+    fullscreenBtn.addEventListener('click', () => {
+      try {
+        if (fsElement()) {
+          (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        } else {
+          (fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen).call(fsRoot);
+        }
+      } catch (_) { /* denied or unsupported — ignore */ }
+    });
+    document.addEventListener('fullscreenchange', updateFsButton);
+    document.addEventListener('webkitfullscreenchange', updateFsButton);
+    updateFsButton();
+  }
+
   // ---- undo / clear -----------------------------------------------------
   document.getElementById('undoBtn').addEventListener('click', () => {
     drawing.undo();

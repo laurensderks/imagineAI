@@ -116,6 +116,12 @@ svg {
 
 .only-mobile { display: none; }
 
+.icon-btn[hidden] { display: none; }
+/* Fullscreen toggle: show the "enter" icon by default, "exit" when active. */
+#fullscreenBtn .fs-exit { display: none; }
+#fullscreenBtn.is-fullscreen .fs-enter { display: none; }
+#fullscreenBtn.is-fullscreen .fs-exit { display: block; }
+
 /* ---------------------------------------------------------------- *
  * Workspace layout
  * ---------------------------------------------------------------- */
