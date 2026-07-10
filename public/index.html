@@ -135,8 +135,6 @@
         <img class="trace-img" id="traceImg" alt="Trace reference" hidden />
         <div class="brush-cursor" id="brushCursor" hidden></div>
       </div>
-      <!-- Page tabs down the right edge of the canvas -->
-      <div class="page-tabs" id="pageTabs" aria-label="Pages"><!-- populated by pages.js --></div>
       <div class="zoom-controls">
         <button class="zoom-btn" id="zoomOutBtn" aria-label="Zoom out">&minus;</button>
         <span class="zoom-level" id="zoomLevel">100%</span>
@@ -187,6 +185,9 @@
         </section>
       </div>
     </aside>
+
+    <!-- Page tabs — anchored to the canvas / right-panel boundary -->
+    <div class="page-tabs" id="pageTabs" aria-label="Pages"><!-- populated by pages.js --></div>
 
     <!-- Panel scrims for mobile slide-in -->
     <div class="scrim" id="scrim"></div>

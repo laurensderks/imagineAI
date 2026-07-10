@@ -456,10 +456,11 @@
   // Safari doesn't support element fullscreen, so the button hides there.
   const fullscreenBtn = document.getElementById('fullscreenBtn');
   const fsRoot = document.documentElement;
-  const fsSupported = !!(
-    fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen ||
-    document.fullscreenEnabled || document.webkitFullscreenEnabled
-  );
+  // Gate on whether fullscreen is actually PERMITTED, not just whether the
+  // method exists. iOS third-party browsers (Chrome/Brave) expose the webkit
+  // method but Apple blocks the API, so fullscreenEnabled is false there —
+  // this hides the dead button on those browsers while keeping it on Safari.
+  const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 
   function fsElement() {
     return document.fullscreenElement || document.webkitFullscreenElement || null;

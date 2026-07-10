@@ -127,6 +127,7 @@ svg {
  * ---------------------------------------------------------------- */
 .workspace {
   flex: 1;
+  position: relative; /* positioning context for the page tabs */
   display: grid;
   grid-template-columns: var(--panel-w) 1fr var(--panel-w);
   min-height: 0;
@@ -186,7 +187,9 @@ svg {
  * ---------------------------------------------------------------- */
 .page-tabs {
   position: absolute;
-  right: 0;
+  /* Anchored to the workspace grid at the right panel's left edge, so the
+     tabs stay glued to the panel boundary regardless of canvas zoom/scroll. */
+  right: var(--panel-w);
   top: 50%;
   display: flex;
   flex-direction: column;
@@ -1131,6 +1134,9 @@ input[type="range"]::-moz-range-thumb {
   .panel-right.open { transform: translateX(0); }
 
   .stage { padding: 12px; }
+
+  /* Right panel is an off-screen overlay here, so hug the screen edge. */
+  .page-tabs { right: 0; }
 
   .result-body { grid-template-columns: 1fr; }
 }
