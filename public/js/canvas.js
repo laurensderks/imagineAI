@@ -21,6 +21,10 @@
   const LOGICAL_SIZE = 1024;
   const SMOOTHING = 0.35;  // how far each raw point pulls the line (lower = steadier)
   const MIN_DIST = 0.8;    // ignore sub-pixel jitter between events
+  // How long each frame may spend replaying strokes during a page load. Higher
+  // = the page finishes sooner (wall-clock closer to a raw redraw), lower = the
+  // app stays more responsive and the tab fill animates more smoothly.
+  const LOAD_FRAME_BUDGET_MS = 24;
 
   class DrawingCanvas {
     constructor(canvasEl) {
@@ -159,7 +163,7 @@
         // context before yielding so any other draw between frames is correct.
         this.ctx = octx;
         const start = performance.now();
-        while (i < total && performance.now() - start < 10) {
+        while (i < total && performance.now() - start < LOAD_FRAME_BUDGET_MS) {
           const stroke = strokes[i];
           stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
           const pts = stroke.points;
