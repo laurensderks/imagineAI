@@ -8,6 +8,19 @@
 </head>
 <body>
 
+<!-- Welcome splash: cross-dissolving render-style images + intro -->
+<div class="splash" id="splash" role="dialog" aria-label="Welcome to ImagineAI">
+  <div class="splash-bg" id="splashBg"><!-- blurred fill layers added by splash.js --></div>
+  <div class="splash-fg" id="splashFg"><!-- sharp centred layers added by splash.js --></div>
+  <div class="splash-content">
+    <span class="splash-mark"></span>
+    <h1>Welcome to ImagineAI</h1>
+    <p class="splash-tagline">Draw. Style. Render.</p>
+    <p class="splash-desc">Sketch anything, choose an artistic style, and watch AI transform your drawing into finished art in seconds.</p>
+    <button class="splash-btn" id="splashEnter">Begin to Imagine</button>
+  </div>
+</div>
+
 <div class="app">
 
   <!-- Top bar -->
@@ -264,6 +277,7 @@
   </div>
 </div>
 
+<script src="js/splash.js"></script>
 <script src="js/brushes.js"></script>
 <script src="js/canvas.js"></script>
 <script src="js/zoom.js"></script>

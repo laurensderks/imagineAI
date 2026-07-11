@@ -1104,6 +1104,128 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ---------------------------------------------------------------- *
+ * Welcome splash
+ * ---------------------------------------------------------------- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg);
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+.splash.hide { opacity: 0; pointer-events: none; }
+/* Legibility scrim over the imagery. */
+.splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(180deg,
+    rgba(10, 11, 15, 0.35) 0%,
+    rgba(10, 11, 15, 0.55) 45%,
+    rgba(10, 11, 15, 0.82) 100%);
+}
+
+.splash-bg { position: absolute; inset: 0; z-index: 0; }
+.splash-fg { position: absolute; inset: 0; z-index: 1; }
+
+/* Blurred, enlarged copy that fills the whole viewport behind the art. */
+.splash-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transform: scale(1.12); /* overscan so the blurred edge never shows */
+  filter: blur(28px) saturate(1.15) brightness(0.85);
+  transition: opacity 1.2s ease;
+  will-change: opacity;
+}
+/* Sharp, whole image — always centred, never cropped. */
+.splash-fg-layer {
+  position: absolute;
+  inset: 0;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  will-change: opacity;
+}
+.splash-layer.show,
+.splash-fg-layer.show { opacity: 1; }
+
+.splash-content {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  padding: 24px;
+  max-width: 560px;
+}
+.splash-mark {
+  display: inline-block;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--accent-grad);
+  box-shadow: 0 0 30px rgba(124, 92, 255, 0.6);
+  margin-bottom: 22px;
+}
+.splash-content h1 {
+  font-size: 40px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
+}
+.splash-tagline {
+  margin: 10px 0 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.splash-desc {
+  margin: 16px auto 0;
+  max-width: 420px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+}
+.splash-btn {
+  margin-top: 28px;
+  padding: 13px 34px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-grad);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(124, 92, 255, 0.45);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.splash-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 32px rgba(124, 92, 255, 0.55); }
+.splash-btn:active { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-layer,
+  .splash-fg-layer { transition: opacity 0.01ms; }
+}
+
+/* ---------------------------------------------------------------- *
  * Mobile slide-in panels
  * ---------------------------------------------------------------- */
 .scrim {
@@ -1146,4 +1268,7 @@ input[type="range"]::-moz-range-thumb {
   .page-tabs { right: 0; }
 
   .result-body { grid-template-columns: 1fr; }
+
+  .splash-content h1 { font-size: 30px; }
+  .splash-desc { font-size: 14px; }
 }
