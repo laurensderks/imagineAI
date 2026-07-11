@@ -578,7 +578,12 @@ input[type="range"]::-moz-range-thumb {
   display: block;
   touch-action: none;
   cursor: none; /* replaced by the true-size .brush-cursor ring */
+  transition: filter 0.2s ease;
 }
+/* While a page loads (strokes replay off-screen), dim the current page so it
+   reads as "loading" rather than frozen; it brightens back up the moment the
+   finished page is swapped in. */
+#drawCanvas.page-loading { filter: brightness(0.5); }
 
 /* True-size brush cursor: a ring matching the exact brush diameter and
    colour, tracked by app.js. Hidden for touch input. */

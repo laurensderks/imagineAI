@@ -60,6 +60,8 @@
       tab.classList.add('loading');
       tab.style.setProperty('--load', '0');
       this._loadingTab = tab;
+      // Dim the current page while its replacement renders off-screen.
+      this.drawing.canvas.classList.add('page-loading');
 
       this.drawing.loadPageProgressive(
         this.pages[index],
@@ -67,6 +69,7 @@
         () => {
           tab.classList.remove('loading');
           tab.style.removeProperty('--load');
+          this.drawing.canvas.classList.remove('page-loading'); // brighten new page in
           if (this._loadingTab === tab) this._loadingTab = null;
         }
       );

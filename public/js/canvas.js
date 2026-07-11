@@ -106,34 +106,59 @@
       this.redrawAll();
     }
 
-    // Like loadPage, but replays strokes in time-budgeted chunks across
-    // animation frames so the main thread never locks up on a busy page.
-    // onProgress(fraction 0..1) fires after each chunk; onDone() at the end.
-    // A second call cancels any replay still in flight.
+    // Like loadPage, but the strokes replay into an off-screen buffer, in
+    // time-budgeted chunks across animation frames, so the main thread never
+    // locks up AND the user never watches the redraw: the visible canvas keeps
+    // showing the current page until the new one is fully drawn, then it swaps
+    // in with a single blit. onProgress(fraction 0..1) fires after each chunk;
+    // onDone() once the finished page is on screen. A second call cancels any
+    // replay still in flight. Drawing is blocked while a load is running (see
+    // _onPointerDown) so nothing lands on the half-built page.
     loadPageProgressive(historyArray, onProgress, onDone) {
       this.currentStroke = null;
       this.activePointerId = null;
       this.history = historyArray;
       this._cancelProgressiveLoad();
 
-      const ctx = this.ctx;
-      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      ctx.fillStyle = this.bgColor;
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+
+      // Off-screen buffer we draw the new page into (reused between loads).
+      if (!this._offscreen) this._offscreen = document.createElement('canvas');
+      if (this._offscreen.width !== W || this._offscreen.height !== H) {
+        this._offscreen.width = W;
+        this._offscreen.height = H;
+      }
+      const octx = this._offscreen.getContext('2d');
+      octx.clearRect(0, 0, W, H);
+      octx.fillStyle = this.bgColor;
+      octx.fillRect(0, 0, W, H);
 
       const strokes = historyArray;
       const total = strokes.length;
+      const realCtx = this.ctx;
+
+      // Reveal the finished page on the visible canvas in one operation.
+      const finish = () => {
+        this.ctx = realCtx;
+        realCtx.clearRect(0, 0, W, H);
+        realCtx.drawImage(this._offscreen, 0, 0);
+        this._loadRAF = null;
+        if (onDone) onDone();
+      };
+
       if (total === 0) {
         if (onProgress) onProgress(1);
-        if (onDone) onDone();
+        finish();
         return;
       }
 
       let i = 0;
       const step = () => {
+        // Point painting at the buffer for this chunk, then restore the visible
+        // context before yielding so any other draw between frames is correct.
+        this.ctx = octx;
         const start = performance.now();
-        // Redraw whole strokes until this frame's ~10ms budget is spent, so
-        // the tab's fill indicator can paint between chunks.
         while (i < total && performance.now() - start < 10) {
           const stroke = strokes[i];
           stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
@@ -147,12 +172,12 @@
           }
           i++;
         }
+        this.ctx = realCtx;
         if (onProgress) onProgress(i / total);
         if (i < total) {
           this._loadRAF = requestAnimationFrame(step);
         } else {
-          this._loadRAF = null;
-          if (onDone) onDone();
+          finish();
         }
       };
       this._loadRAF = requestAnimationFrame(step);
@@ -163,6 +188,11 @@
         cancelAnimationFrame(this._loadRAF);
         this._loadRAF = null;
       }
+    }
+
+    // True while a page is still replaying into the off-screen buffer.
+    isLoadingPage() {
+      return !!this._loadRAF;
     }
 
     toDataURL() {
@@ -205,6 +235,10 @@
 
     _onPointerDown(e) {
       if (this._suspended || this._traceBlock) return;
+      // Ignore input while a page is still loading into the off-screen buffer,
+      // so a stroke can't land on the half-built page (or the page we're about
+      // to swap in over the top of it).
+      if (this._loadRAF) { if (e.cancelable) e.preventDefault(); return; }
       // In pen-only mode swallow the finger entirely (preventDefault) rather
       // than just skipping it, so it can't feed a browser swipe/exit gesture.
       if (this._penOnly && e.pointerType === 'touch') { if (e.cancelable) e.preventDefault(); return; }
