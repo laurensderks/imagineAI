@@ -303,6 +303,144 @@ svg {
   box-shadow: 0 0 0 1px var(--accent) inset;
 }
 
+/* ---------------------------------------------------------------- *
+ * Layers — three stacked sheets, front (top) to back (bottom)
+ * ---------------------------------------------------------------- */
+.layers-hint { margin: 0 0 8px; }
+.layer-list { display: flex; flex-direction: column; gap: 6px; }
+.layer-row { display: flex; align-items: stretch; gap: 6px; }
+.layer-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+/* Per-layer clear button (turns red on hover, disabled when the layer is empty). */
+.layer-clear {
+  flex-shrink: 0;
+  width: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.layer-clear svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.layer-clear:hover:not(:disabled) {
+  border-color: #e5484d;
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.12);
+}
+.layer-clear:disabled { opacity: 0.3; cursor: not-allowed; }
+.layer-btn:hover { border-color: #3a3d4d; color: var(--text); }
+.layer-btn.active {
+  background: rgba(124, 92, 255, 0.16);
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+/* Live preview of what's on this layer (painted by app.js on white paper). */
+.layer-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: block;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.layer-name { flex: 1; font-size: 13.5px; font-weight: 600; }
+.layer-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
+
+/* ---------------------------------------------------------------- *
+ * Onboarding tour (one-time coach marks for Layers)
+ * ---------------------------------------------------------------- */
+#tour { position: fixed; inset: 0; z-index: 99990; }
+#tour .tour-block { position: fixed; inset: 0; z-index: 99996; } /* blocks clicks */
+.tour-hole {
+  position: fixed;
+  z-index: 99998;
+  border-radius: 12px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 9999px rgba(8, 9, 13, 0.62),
+    0 0 0 2px rgba(124, 92, 255, 0.9),
+    0 0 26px 4px rgba(124, 92, 255, 0.45);
+  transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+.tour-card {
+  position: fixed;
+  z-index: 99999;
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  background: #191b24;
+  border: 1px solid rgba(124, 92, 255, 0.5);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  animation: tourIn 0.18s ease;
+}
+@keyframes tourIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.tour-arrow {
+  position: absolute;
+  left: -8px;
+  width: 14px;
+  height: 14px;
+  background: #191b24;
+  border-left: 1px solid rgba(124, 92, 255, 0.5);
+  border-bottom: 1px solid rgba(124, 92, 255, 0.5);
+  transform: rotate(45deg);
+}
+.tour-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #b9a6ff;
+  margin-bottom: 8px;
+}
+.tour-badge svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.tour-card h4 { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #fff; }
+.tour-card p { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.82); }
+.tour-card p b { color: #fff; font-weight: 600; }
+.tour-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); transition: background 0.15s ease; }
+.tour-dot.on { background: var(--accent); }
+.tour-actions { display: flex; gap: 6px; }
+.tour-btn { border: none; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 700; padding: 7px 14px; transition: filter 0.12s ease, background 0.12s ease; }
+.tour-skip { background: transparent; color: rgba(255, 255, 255, 0.5); padding: 7px 8px; }
+.tour-skip:hover { color: rgba(255, 255, 255, 0.8); }
+.tour-back { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.tour-back:hover { background: rgba(255, 255, 255, 0.14); }
+.tour-next { background: var(--accent-grad); color: #fff; }
+.tour-next:hover { filter: brightness(1.08); }
+
 /* range slider */
 input[type="range"] {
   -webkit-appearance: none;
@@ -572,18 +710,37 @@ input[type="range"]::-moz-range-thumb {
   user-select: none;
 }
 
+/* The three drawing layers (back → middle → foreground) stacked; the browser
+   composites them for free. The white "paper" is the .canvas-wrap behind them. */
+.layer-stack {
+  position: absolute;
+  inset: 0;
+  transition: filter 0.2s ease;
+}
+.draw-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none; /* input goes to #drawCanvas on top */
+}
+/* While a page loads (layers replay off-screen), dim the current page so it
+   reads as "loading" rather than frozen; it brightens back up the moment the
+   finished layers are swapped in. */
+.layer-stack.page-loading { filter: brightness(0.5); }
+
+/* Transparent surface on top of the stack that catches all pointer input. */
 #drawCanvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
   touch-action: none;
   cursor: none; /* replaced by the true-size .brush-cursor ring */
-  transition: filter 0.2s ease;
+  background: transparent;
 }
-/* While a page loads (strokes replay off-screen), dim the current page so it
-   reads as "loading" rather than frozen; it brightens back up the moment the
-   finished page is swapped in. */
-#drawCanvas.page-loading { filter: brightness(0.5); }
 
 /* True-size brush cursor: a ring matching the exact brush diameter and
    colour, tracked by app.js. Hidden for touch input. */

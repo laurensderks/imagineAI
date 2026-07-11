@@ -148,8 +148,10 @@
 
   // ---- canvas ---------------------------------------------------------
   const canvasEl = document.getElementById('drawCanvas');
-  const drawing = new DrawingCanvas(canvasEl);
-  drawing.onStrokeEnd = () => { updateRenderAvailability(); scheduleSave(); };
+  const layerEls = [...document.querySelectorAll('#layerStack .draw-layer')];
+  const drawing = new DrawingCanvas(canvasEl, layerEls);
+  drawing.onStrokeEnd = () => { updateRenderAvailability(); scheduleSave(); refreshLayers(); };
+  drawing.onLayerChange = () => refreshLayers();
 
   // ---- zoom (+/- buttons, mouse wheel, two-finger pinch) ---------------
   new ZoomController({
@@ -161,7 +163,89 @@
     zoomOutBtn: document.getElementById('zoomOutBtn'),
   });
 
-  // ---- pages (5 independent doodles, switchable at any time) ----------
+  // ---- layers (three stacked sheets: foreground / middle / background) ----
+  // Built before the page manager, since loading the first page fires
+  // onLayerChange → refreshLayers. Listed front-on-top so the buttons mirror
+  // how the drawing actually stacks.
+  const LAYER_META = [
+    { index: 2, name: 'Foreground' },
+    { index: 1, name: 'Middle' },
+    { index: 0, name: 'Background' },
+  ];
+  const layerList = document.getElementById('layerList');
+  const activeLayerName = document.getElementById('activeLayerName');
+  const layerButtons = [];
+  const thumbDpr = window.devicePixelRatio || 1;
+
+  LAYER_META.forEach((meta) => {
+    const row = document.createElement('div');
+    row.className = 'layer-row';
+
+    const btn = document.createElement('button');
+    btn.className = 'layer-btn';
+    btn.type = 'button';
+    btn.dataset.layer = meta.index;
+    btn.setAttribute('aria-label', `Draw on the ${meta.name} layer`);
+
+    const thumb = document.createElement('canvas');
+    thumb.className = 'layer-thumb';
+    thumb.width = Math.round(40 * thumbDpr);
+    thumb.height = Math.round(40 * thumbDpr);
+
+    const name = document.createElement('span');
+    name.className = 'layer-name';
+    name.textContent = meta.name;
+
+    const empty = document.createElement('span');
+    empty.className = 'layer-empty';
+    empty.textContent = 'empty';
+
+    btn.append(thumb, name, empty);
+    btn.addEventListener('click', () => drawing.setActiveLayer(meta.index));
+
+    // Per-layer clear (leaves the other layers alone).
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'layer-clear';
+    clearBtn.type = 'button';
+    clearBtn.title = `Clear the ${meta.name} layer`;
+    clearBtn.setAttribute('aria-label', `Clear the ${meta.name} layer`);
+    clearBtn.innerHTML =
+      '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>';
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!drawing.layerHasContent(meta.index)) return;
+      if (window.confirm(`Clear the ${meta.name} layer? This cannot be undone.`)) {
+        drawing.clearLayer(meta.index); // fires onLayerChange → refreshLayers
+        updateRenderAvailability();
+        scheduleSave();
+      }
+    });
+
+    row.append(btn, clearBtn);
+    layerList.appendChild(row);
+    layerButtons.push({ index: meta.index, btn, clearBtn, thumb, empty });
+  });
+
+  // Reflect the active layer + repaint each layer's little preview.
+  function refreshLayers() {
+    const active = drawing.getActiveLayer();
+    layerButtons.forEach(({ index, btn, clearBtn, thumb, empty }) => {
+      btn.classList.toggle('active', index === active);
+      const has = drawing.layerHasContent(index);
+      empty.hidden = has;
+      clearBtn.disabled = !has; // nothing to clear on an empty layer
+      const tctx = thumb.getContext('2d');
+      tctx.setTransform(1, 0, 0, 1, 0, 0);
+      tctx.fillStyle = '#ffffff';
+      tctx.fillRect(0, 0, thumb.width, thumb.height);
+      tctx.drawImage(drawing.getLayerCanvas(index), 0, 0, thumb.width, thumb.height);
+    });
+    const meta = LAYER_META.find((m) => m.index === active);
+    if (meta) activeLayerName.textContent = meta.name;
+  }
+  refreshLayers();
+
+  // ---- pages (4 independent doodles, switchable at any time) ----------
   const pageManager = new PageManager({
     drawing,
     tabsContainer: document.getElementById('pageTabs'),
@@ -380,7 +464,7 @@
   saveImageBtn.addEventListener('click', () => {
     if (saveImageBtn.disabled) return;
     const filename = `imagineai-page-${pageManager.currentIndex + 1}.png`;
-    drawing.canvas.toBlob(async (blob) => {
+    drawing.toBlob(async (blob) => {
       if (!blob) return;
       // Prefer the native share sheet on Apple touch devices so users can
       // save straight to Photos or Files.
@@ -713,29 +797,50 @@
   // safety-net save after every change — and restored on next visit.
   const SESSION_KEY = 'imagineai.session';
 
+  // Compact per-stroke form for storage; points → [x, y, pressure] triples
+  // with rounded coords, keeping four full multi-layer pages inside quota.
+  function compactStrokes(strokes) {
+    return strokes.map((st) => ({
+      t: st.tool,
+      b: st.brushId,
+      c: st.color,
+      s: st.size,
+      p: st.points.map((pt) => [
+        Math.round(pt.x * 10) / 10,
+        Math.round(pt.y * 10) / 10,
+        Math.round((pt.pressure != null ? pt.pressure : 0.5) * 100) / 100,
+      ]),
+    }));
+  }
+
+  function expandStrokes(compact) {
+    return (Array.isArray(compact) ? compact : []).map((st) => ({
+      tool: st.t === 'eraser' ? 'eraser' : 'brush',
+      brushId: typeof st.b === 'string' ? st.b : 'pen',
+      color: typeof st.c === 'string' ? st.c : '#111111',
+      size: typeof st.s === 'number' ? st.s : 14,
+      points: (Array.isArray(st.p) ? st.p : [])
+        .filter((a) => Array.isArray(a) && a.length >= 2)
+        .map((a) => ({ x: a[0], y: a[1], pressure: a[2] != null ? a[2] : 0.5 })),
+    })).filter((st) => st.points.length > 0);
+  }
+
   function saveSession() {
     try {
       const snap = pageManager.snapshot();
       const data = {
-        v: 1,
+        v: 2,
         brush: drawing.brushId,
         color: drawing.color,
         size: drawing.size,
         penOnly: drawing.isPenOnly(),
         page: snap.index,
-        // Compact per-stroke form: points become [x, y, pressure] triples
-        // with rounded coords, keeping five full pages well inside quota.
-        pages: snap.pages.map((strokes) => strokes.map((st) => ({
-          t: st.tool,
-          b: st.brushId,
-          c: st.color,
-          s: st.size,
-          p: st.points.map((pt) => [
-            Math.round(pt.x * 10) / 10,
-            Math.round(pt.y * 10) / 10,
-            Math.round((pt.pressure != null ? pt.pressure : 0.5) * 100) / 100,
-          ]),
-        }))),
+        // Each page is { a: activeLayer, l: [back, middle, foreground] }, and
+        // each layer is a list of compact strokes.
+        pages: snap.pages.map((pg) => ({
+          a: pg.active,
+          l: pg.layers.map(compactStrokes),
+        })),
         trace: traceCtrl.getState(), // reference image + geometry, or null
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(data));
@@ -751,18 +856,23 @@
   function restoreSession() {
     let data = null;
     try { data = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (_) { /* corrupt — ignore */ }
-    if (!data || data.v !== 1) return;
+    if (!data || (data.v !== 1 && data.v !== 2)) return;
 
     if (Array.isArray(data.pages)) {
-      const pages = data.pages.map((pg) => (Array.isArray(pg) ? pg : []).map((st) => ({
-        tool: st.t === 'eraser' ? 'eraser' : 'brush',
-        brushId: typeof st.b === 'string' ? st.b : 'pen',
-        color: typeof st.c === 'string' ? st.c : '#111111',
-        size: typeof st.s === 'number' ? st.s : 14,
-        points: (Array.isArray(st.p) ? st.p : [])
-          .filter((a) => Array.isArray(a) && a.length >= 2)
-          .map((a) => ({ x: a[0], y: a[1], pressure: a[2] != null ? a[2] : 0.5 })),
-      })).filter((st) => st.points.length > 0));
+      let pages;
+      if (data.v === 2) {
+        pages = data.pages.map((pg) => ({
+          active: pg && typeof pg.a === 'number' ? pg.a : 1,
+          layers: (Array.isArray(pg && pg.l) ? pg.l : []).map(expandStrokes),
+        }));
+      } else {
+        // v1 sessions had a single flat history per page — put it on the
+        // middle layer so older drawings survive the upgrade.
+        pages = data.pages.map((flat) => ({
+          active: 1,
+          layers: [[], expandStrokes(flat), []],
+        }));
+      }
       pageManager.restore(pages, data.page || 0);
     }
 

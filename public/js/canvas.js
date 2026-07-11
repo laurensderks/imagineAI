@@ -1,10 +1,19 @@
 /**
  * canvas.js
  *
- * The drawing engine. Owns the <canvas> element, pointer input handling
+ * The drawing engine. Owns the drawing surface, pointer input handling
  * (mouse / touch / stylus via the unified Pointer Events API, including
- * pressure), the stroke history (for undo/redraw), and the background
- * colour.
+ * pressure), the per-layer stroke history (for undo/redraw), and the
+ * background colour.
+ *
+ * LAYERS: each page has three stacked <canvas> layers — back, middle,
+ * foreground — that the browser composites for free (correct z-order, and
+ * live drawing only ever touches the ACTIVE layer, so it stays fast no matter
+ * how much is on the other layers). A transparent input surface sits on top of
+ * the stack and receives all pointer events; `this.canvas` / `this.ctx` /
+ * `this.history` always mirror the active layer so the drawing + undo code
+ * stays layer-agnostic. Export flattens the three layers onto a white
+ * background.
  *
  * Incoming pointer input runs through a STABILIZER: each raw point is eased
  * toward the previous drawn point, filtering hand wobble into confident,
@@ -27,28 +36,36 @@
   const LOAD_FRAME_BUDGET_MS = 24;
 
   class DrawingCanvas {
-    constructor(canvasEl) {
-      this.canvas = canvasEl;
-      this.ctx = canvasEl.getContext('2d', { willReadFrequently: false });
+    constructor(inputEl, layerEls) {
+      // Transparent surface on top of the layer stack that receives all pointer
+      // input; the actual pixels live on the stacked layer canvases below it.
+      this.inputEl = inputEl;
+      inputEl.width = LOGICAL_SIZE;
+      inputEl.height = LOGICAL_SIZE;
 
-      this.canvas.width = LOGICAL_SIZE;
-      this.canvas.height = LOGICAL_SIZE;
+      // Back → middle → foreground. Each layer owns a canvas + its own stroke
+      // history. Kept transparent — the white "paper" comes from .canvas-wrap.
+      this.layers = layerEls.map((el) => {
+        el.width = LOGICAL_SIZE;
+        el.height = LOGICAL_SIZE;
+        return { canvas: el, ctx: el.getContext('2d'), history: [] };
+      });
+      this.activeIndex = 1; // default to the middle layer
 
-      // Tool state
+      // Tool state (shared across layers — brush/colour/size are not per-layer).
       this.brushId = 'pen';
       this.color = '#7c5cff';
       this.size = 14;
       this.isEraser = false;
       this.bgColor = '#ffffff';
 
-      // History of completed strokes, for undo + full redraws.
-      this.history = [];
       this.currentStroke = null;
       this.activePointerId = null;
       this._suspended = false;  // true during a multi-touch gesture (pinch-zoom)
       this._traceBlock = false; // true while adjusting a trace reference image
       this._penOnly = false;    // true = only a stylus draws; finger is ignored
 
+      this._useActiveLayer();
       this._bindEvents();
       this.redrawAll();
     }
@@ -58,14 +75,49 @@
     setSize(px) { this.size = px; }
     setEraser(on) { this.isEraser = on; }
 
-    // Discards the in-progress stroke (if any) and repaints from history only,
-    // wiping any pixels the aborted stroke had already painted live.
+    // ---- layers ---------------------------------------------------
+
+    layerCount() { return this.layers.length; }
+    getActiveLayer() { return this.activeIndex; }
+    getLayerCanvas(i) { return this.layers[i].canvas; }
+    layerHasContent(i) { return this.layers[i].history.length > 0; }
+    // Live references to each layer's stroke history (used by pages/autosave).
+    getLayers() { return this.layers.map((l) => l.history); }
+
+    // Point this.canvas / this.ctx / this.history at the active layer, so the
+    // drawing + undo code doesn't need to know layers exist.
+    _useActiveLayer() {
+      const l = this.layers[this.activeIndex];
+      this.canvas = l.canvas;
+      this.ctx = l.ctx;
+      this.history = l.history;
+    }
+
+    // Switch which layer new strokes land on. Instant — the layers are already
+    // painted, so there's nothing to redraw.
+    setActiveLayer(i) {
+      if (i < 0 || i >= this.layers.length || i === this.activeIndex) return;
+      this.cancelActiveStroke();
+      this.activeIndex = i;
+      this._useActiveLayer();
+      if (typeof this.onLayerChange === 'function') this.onLayerChange();
+    }
+
+    // Toggles the "loading" dim on the layer stack (used by pages.js during a
+    // page switch, so the current page dims while the next renders off-screen).
+    setLoadingDim(on) {
+      const stack = this.layers[0].canvas.parentElement;
+      if (stack) stack.classList.toggle('page-loading', on);
+    }
+
+    // Discards the in-progress stroke (if any) and repaints the active layer
+    // from history only, wiping any pixels the aborted stroke had painted live.
     cancelActiveStroke() {
       this._lastRaw = null;
       if (this.currentStroke) {
         this.currentStroke = null;
         this.activePointerId = null;
-        this.redrawAll();
+        this._redrawLayer(this.activeIndex);
       }
     }
 
@@ -90,64 +142,84 @@
     setPenOnly(on) { this._penOnly = !!on; }
     isPenOnly() { return this._penOnly; }
 
+    // Undo the last stroke on the layer you're working on.
     undo() {
-      this.history.pop();
-      this.redrawAll();
+      this.layers[this.activeIndex].history.pop();
+      this._redrawLayer(this.activeIndex);
     }
 
+    // Clear the whole page (every layer).
     clear() {
-      this.history = [];
+      this.layers.forEach((l) => { l.history = []; });
+      this._useActiveLayer();
       this.redrawAll();
+      if (typeof this.onLayerChange === 'function') this.onLayerChange();
     }
 
-    // Called by pages.js when switching pages: swaps in a different page's
-    // stroke history (each page keeps its own array) without touching
-    // current tool settings like brush/colour/size.
-    loadPage(historyArray) {
-      this.currentStroke = null;
-      this.activePointerId = null;
-      this.history = historyArray;
-      this.redrawAll();
+    // Clear a single layer, leaving the others (and the active layer) untouched.
+    clearLayer(i) {
+      if (i < 0 || i >= this.layers.length) return;
+      this.layers[i].history = [];
+      this._redrawLayer(i);
+      this._useActiveLayer(); // resync in case the active layer's array was cleared
+      if (typeof this.onLayerChange === 'function') this.onLayerChange();
     }
 
-    // Like loadPage, but the strokes replay into an off-screen buffer, in
-    // time-budgeted chunks across animation frames, so the main thread never
-    // locks up AND the user never watches the redraw: the visible canvas keeps
-    // showing the current page until the new one is fully drawn, then it swaps
-    // in with a single blit. onProgress(fraction 0..1) fires after each chunk;
-    // onDone() once the finished page is on screen. A second call cancels any
-    // replay still in flight. Drawing is blocked while a load is running (see
-    // _onPointerDown) so nothing lands on the half-built page.
-    loadPageProgressive(historyArray, onProgress, onDone) {
-      this.currentStroke = null;
-      this.activePointerId = null;
-      this.history = historyArray;
+    // Replace all layers' histories and show the given page. Used on restore
+    // and when a page is loaded without the progressive/dim transition.
+    loadLayers(layerHistories, activeIndex) {
       this._cancelProgressiveLoad();
-
-      const W = this.canvas.width;
-      const H = this.canvas.height;
-
-      // Off-screen buffer we draw the new page into (reused between loads).
-      if (!this._offscreen) this._offscreen = document.createElement('canvas');
-      if (this._offscreen.width !== W || this._offscreen.height !== H) {
-        this._offscreen.width = W;
-        this._offscreen.height = H;
+      this.currentStroke = null;
+      this.activePointerId = null;
+      for (let i = 0; i < this.layers.length; i++) {
+        this.layers[i].history = layerHistories[i] || [];
       }
-      const octx = this._offscreen.getContext('2d');
-      octx.clearRect(0, 0, W, H);
-      octx.fillStyle = this.bgColor;
-      octx.fillRect(0, 0, W, H);
+      this.activeIndex = this._clampLayer(activeIndex);
+      this._useActiveLayer();
+      this.redrawAll();
+      if (typeof this.onLayerChange === 'function') this.onLayerChange();
+    }
 
-      const strokes = historyArray;
-      const total = strokes.length;
-      const realCtx = this.ctx;
+    // Like loadLayers, but the strokes replay into off-screen buffers (one per
+    // layer), in time-budgeted chunks across animation frames, so the main
+    // thread never locks up AND the user never watches the redraw: the visible
+    // layers keep showing the current page until every layer is fully drawn,
+    // then they swap in together. onProgress(fraction 0..1) fires after each
+    // chunk; onDone() once the finished page is on screen. A second call
+    // cancels any replay still in flight. Drawing is blocked while a load runs.
+    loadLayersProgressive(layerHistories, activeIndex, onProgress, onDone) {
+      this._cancelProgressiveLoad();
+      this.currentStroke = null;
+      this.activePointerId = null;
 
-      // Reveal the finished page on the visible canvas in one operation.
+      const S = LOGICAL_SIZE;
+      if (!this._buffers) this._buffers = this.layers.map(() => document.createElement('canvas'));
+      const bufCtxs = this._buffers.map((b) => {
+        if (b.width !== S) { b.width = S; b.height = S; }
+        const c = b.getContext('2d');
+        c.clearRect(0, 0, S, S);
+        return c;
+      });
+
+      // Flat work list across all target layers (order within a layer matters).
+      const work = [];
+      for (let li = 0; li < layerHistories.length; li++) {
+        const hs = layerHistories[li] || [];
+        for (let si = 0; si < hs.length; si++) work.push([li, hs[si]]);
+      }
+      const total = work.length;
+
       const finish = () => {
-        this.ctx = realCtx;
-        realCtx.clearRect(0, 0, W, H);
-        realCtx.drawImage(this._offscreen, 0, 0);
+        for (let li = 0; li < this.layers.length; li++) {
+          this.layers[li].history = layerHistories[li] || [];
+          const ctx = this.layers[li].ctx;
+          ctx.clearRect(0, 0, S, S);
+          ctx.drawImage(this._buffers[li], 0, 0);
+        }
+        this.activeIndex = this._clampLayer(activeIndex);
+        this._useActiveLayer();
         this._loadRAF = null;
+        if (typeof this.onLayerChange === 'function') this.onLayerChange();
         if (onDone) onDone();
       };
 
@@ -159,30 +231,14 @@
 
       let i = 0;
       const step = () => {
-        // Point painting at the buffer for this chunk, then restore the visible
-        // context before yielding so any other draw between frames is correct.
-        this.ctx = octx;
         const start = performance.now();
         while (i < total && performance.now() - start < LOAD_FRAME_BUDGET_MS) {
-          const stroke = strokes[i];
-          stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
-          const pts = stroke.points;
-          if (pts.length === 1) {
-            this._paintSegment(stroke, pts[0], pts[0]);
-          } else {
-            for (let j = 1; j < pts.length; j++) {
-              this._paintSegment(stroke, pts[j - 1], pts[j]);
-            }
-          }
+          this._paintStrokeTo(bufCtxs[work[i][0]], work[i][1]);
           i++;
         }
-        this.ctx = realCtx;
         if (onProgress) onProgress(i / total);
-        if (i < total) {
-          this._loadRAF = requestAnimationFrame(step);
-        } else {
-          finish();
-        }
+        if (i < total) this._loadRAF = requestAnimationFrame(step);
+        else finish();
       };
       this._loadRAF = requestAnimationFrame(step);
     }
@@ -194,23 +250,45 @@
       }
     }
 
-    // True while a page is still replaying into the off-screen buffer.
+    // True while a page is still replaying into the off-screen buffers.
     isLoadingPage() {
       return !!this._loadRAF;
     }
 
+    _clampLayer(i) {
+      return Math.min(Math.max(0, i | 0), this.layers.length - 1);
+    }
+
+    // ---- export ---------------------------------------------------
+
+    // Flatten the three layers onto the background colour into a temp canvas.
+    _flatten() {
+      const c = document.createElement('canvas');
+      c.width = LOGICAL_SIZE;
+      c.height = LOGICAL_SIZE;
+      const x = c.getContext('2d');
+      x.fillStyle = this.bgColor;
+      x.fillRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+      for (const l of this.layers) x.drawImage(l.canvas, 0, 0);
+      return c;
+    }
+
     toDataURL() {
-      return this.canvas.toDataURL('image/png');
+      return this._flatten().toDataURL('image/png');
+    }
+
+    toBlob(cb, type) {
+      this._flatten().toBlob(cb, type || 'image/png');
     }
 
     hasDrawing() {
-      return this.history.length > 0;
+      return this.layers.some((l) => l.history.length > 0);
     }
 
     // ---- internal -------------------------------------------------
 
     _bindEvents() {
-      const el = this.canvas;
+      const el = this.inputEl;
       el.style.touchAction = 'none';
 
       el.addEventListener('pointerdown', (e) => this._onPointerDown(e));
@@ -227,9 +305,9 @@
     }
 
     _getPoint(e) {
-      const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
+      const rect = this.inputEl.getBoundingClientRect();
+      const scaleX = LOGICAL_SIZE / rect.width;
+      const scaleY = LOGICAL_SIZE / rect.height;
       return {
         x: (e.clientX - rect.left) * scaleX,
         y: (e.clientY - rect.top) * scaleY,
@@ -239,7 +317,7 @@
 
     _onPointerDown(e) {
       if (this._suspended || this._traceBlock) return;
-      // Ignore input while a page is still loading into the off-screen buffer,
+      // Ignore input while a page is still loading into the off-screen buffers,
       // so a stroke can't land on the half-built page (or the page we're about
       // to swap in over the top of it).
       if (this._loadRAF) { if (e.cancelable) e.preventDefault(); return; }
@@ -257,7 +335,7 @@
         return;
       }
 
-      try { this.canvas.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+      try { this.inputEl.setPointerCapture(e.pointerId); } catch (_) { /* no-op */ }
       this.activePointerId = e.pointerId;
 
       const pt = this._getPoint(e);
@@ -316,21 +394,22 @@
       }
       this._lastRaw = null;
 
-      this.history.push(this.currentStroke);
+      this.layers[this.activeIndex].history.push(this.currentStroke);
       this.currentStroke = null;
       this.activePointerId = null;
-      try { this.canvas.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
+      try { this.inputEl.releasePointerCapture(e.pointerId); } catch (_) { /* no-op */ }
       if (typeof this.onStrokeEnd === 'function') this.onStrokeEnd();
     }
 
-    // Paints one segment straight to the visible canvas (used for both live
-    // drawing and full redraws).
+    // Paints one segment straight to the current target context (this.ctx —
+    // the active layer while drawing, or a buffer/layer ctx during a replay).
     _paintSegment(stroke, p0, p1) {
       if (stroke.tool === 'eraser') {
+        // Erase to transparent so the layers below (and the white paper) show
+        // through, rather than painting an opaque background colour.
         this.ctx.save();
-        this.ctx.globalAlpha = 1;
-        this.ctx.globalCompositeOperation = 'source-over';
-        this.ctx.strokeStyle = this.bgColor;
+        this.ctx.globalCompositeOperation = 'destination-out';
+        this.ctx.strokeStyle = 'rgba(0,0,0,1)';
         this.ctx.lineWidth = stroke.size;
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
@@ -350,24 +429,33 @@
       });
     }
 
-    redrawAll() {
-      this._cancelProgressiveLoad(); // a full redraw supersedes any in-flight replay
-      const ctx = this.ctx;
-      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      ctx.fillStyle = this.bgColor;
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-      for (const stroke of this.history) {
-        stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
-        const pts = stroke.points;
-        if (pts.length === 1) {
-          this._paintSegment(stroke, pts[0], pts[0]);
-        } else {
-          for (let i = 1; i < pts.length; i++) {
-            this._paintSegment(stroke, pts[i - 1], pts[i]);
-          }
+    // Replay a whole stroke into an arbitrary context (temporarily retargets
+    // this.ctx, which _paintSegment paints to).
+    _paintStrokeTo(ctx, stroke) {
+      const saved = this.ctx;
+      this.ctx = ctx;
+      stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
+      const pts = stroke.points;
+      if (pts.length === 1) {
+        this._paintSegment(stroke, pts[0], pts[0]);
+      } else {
+        for (let j = 1; j < pts.length; j++) {
+          this._paintSegment(stroke, pts[j - 1], pts[j]);
         }
       }
+      this.ctx = saved;
+    }
+
+    // Repaint one layer from its own history (transparent — no background fill).
+    _redrawLayer(i) {
+      const l = this.layers[i];
+      l.ctx.clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
+      for (const stroke of l.history) this._paintStrokeTo(l.ctx, stroke);
+    }
+
+    redrawAll() {
+      this._cancelProgressiveLoad(); // a full redraw supersedes any in-flight replay
+      for (let i = 0; i < this.layers.length; i++) this._redrawLayer(i);
     }
   }
 
