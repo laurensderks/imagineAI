@@ -106,6 +106,65 @@
       this.redrawAll();
     }
 
+    // Like loadPage, but replays strokes in time-budgeted chunks across
+    // animation frames so the main thread never locks up on a busy page.
+    // onProgress(fraction 0..1) fires after each chunk; onDone() at the end.
+    // A second call cancels any replay still in flight.
+    loadPageProgressive(historyArray, onProgress, onDone) {
+      this.currentStroke = null;
+      this.activePointerId = null;
+      this.history = historyArray;
+      this._cancelProgressiveLoad();
+
+      const ctx = this.ctx;
+      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.fillStyle = this.bgColor;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+      const strokes = historyArray;
+      const total = strokes.length;
+      if (total === 0) {
+        if (onProgress) onProgress(1);
+        if (onDone) onDone();
+        return;
+      }
+
+      let i = 0;
+      const step = () => {
+        const start = performance.now();
+        // Redraw whole strokes until this frame's ~10ms budget is spent, so
+        // the tab's fill indicator can paint between chunks.
+        while (i < total && performance.now() - start < 10) {
+          const stroke = strokes[i];
+          stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
+          const pts = stroke.points;
+          if (pts.length === 1) {
+            this._paintSegment(stroke, pts[0], pts[0]);
+          } else {
+            for (let j = 1; j < pts.length; j++) {
+              this._paintSegment(stroke, pts[j - 1], pts[j]);
+            }
+          }
+          i++;
+        }
+        if (onProgress) onProgress(i / total);
+        if (i < total) {
+          this._loadRAF = requestAnimationFrame(step);
+        } else {
+          this._loadRAF = null;
+          if (onDone) onDone();
+        }
+      };
+      this._loadRAF = requestAnimationFrame(step);
+    }
+
+    _cancelProgressiveLoad() {
+      if (this._loadRAF) {
+        cancelAnimationFrame(this._loadRAF);
+        this._loadRAF = null;
+      }
+    }
+
     toDataURL() {
       return this.canvas.toDataURL('image/png');
     }
@@ -254,6 +313,7 @@
     }
 
     redrawAll() {
+      this._cancelProgressiveLoad(); // a full redraw supersedes any in-flight replay
       const ctx = this.ctx;
       ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       ctx.fillStyle = this.bgColor;

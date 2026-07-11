@@ -203,6 +203,8 @@ svg {
 }
 
 .page-tab {
+  position: relative;
+  overflow: hidden;
   width: 32px;
   height: 44px;
   border: 1px solid var(--border);
@@ -226,6 +228,30 @@ svg {
   color: #fff;
   border-color: transparent;
 }
+/* While the page's strokes redraw, keep the tab dark and let the accent
+   gradient rise from the bottom (height driven by --load, 0..1) as a real
+   progress indicator. Placed after .active so it wins during loading. */
+.page-tab.loading {
+  background: var(--bg-elev-1);
+  color: #fff;
+  border-color: transparent;
+}
+.page-tab.loading::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--load, 0) * 100%);
+  background: var(--accent-grad);
+  transition: height 0.12s linear;
+  pointer-events: none;
+}
+/* Keep the digit crisp wherever the rising fill sits behind it — the gradient's
+   light teal end would otherwise wash out the white number. The digit sits
+   above the ::before fill; the dark shadow reads on both the tab and the fill. */
+.page-tab.active,
+.page-tab.loading { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
 
 /* ---------------------------------------------------------------- *
  * Brush grid

@@ -48,9 +48,38 @@
       // (it may have been reassigned by clear()) before switching away.
       this.pages[this.currentIndex] = this.drawing.history;
       this.currentIndex = index;
-      this.drawing.loadPage(this.pages[index]);
+
+      // Clear any half-finished fill from a tab we were mid-load on (rapid taps).
+      this._clearLoadingTab();
+
+      // Light the target tab up *now* so the tap registers instantly, then let
+      // its accent gradient fill from the bottom as the page's strokes redraw —
+      // real progress, so there's no need to keep tapping.
       this._updateUI();
+      const tab = this.tabs[index];
+      tab.classList.add('loading');
+      tab.style.setProperty('--load', '0');
+      this._loadingTab = tab;
+
+      this.drawing.loadPageProgressive(
+        this.pages[index],
+        (p) => { tab.style.setProperty('--load', String(p)); },
+        () => {
+          tab.classList.remove('loading');
+          tab.style.removeProperty('--load');
+          if (this._loadingTab === tab) this._loadingTab = null;
+        }
+      );
+
       if (typeof this.onPageChange === 'function') this.onPageChange();
+    }
+
+    _clearLoadingTab() {
+      if (this._loadingTab) {
+        this._loadingTab.classList.remove('loading');
+        this._loadingTab.style.removeProperty('--load');
+        this._loadingTab = null;
+      }
     }
 
     // Returns the up-to-date pages + current index (re-capturing the live
