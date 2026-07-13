@@ -391,8 +391,8 @@
     switch (e.key) {
       case '-': case '_': nudgeSlider(sizeSlider, -2); break;
       case '=': case '+': nudgeSlider(sizeSlider, 2); break;
-      case '[': nudgeSlider(opacitySlider, 5); break;  // more transparent = less opacity
-      case ']': nudgeSlider(opacitySlider, -5); break; // less transparent = more opacity
+      case ']': nudgeSlider(opacitySlider, 5); break;  // more transparent
+      case '[': nudgeSlider(opacitySlider, -5); break; // less transparent
       default: handled = false;
     }
     if (handled) e.preventDefault();
