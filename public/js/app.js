@@ -374,17 +374,20 @@
     tip.style.left = Math.round(left) + 'px';
     tip.style.top = Math.round(r.bottom + 8) + 'px';
   }
+  function toggleHelp(h) {
+    const open = h.classList.contains('help-open');
+    closeAllHelp();
+    if (!open) { placeHelpTip(h); h.classList.add('help-open'); }
+  }
   helpHints.forEach((h) => {
+    // Mouse: hover to reveal. Touch/keyboard: one tap (or Enter/Space) toggles.
+    // No focus-to-open — on touch the tap both focuses and clicks, and a
+    // focus-open would be cancelled by the same tap's click (needing a 2nd tap).
     h.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { placeHelpTip(h); h.classList.add('help-open'); } });
     h.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') h.classList.remove('help-open'); });
-    h.addEventListener('focus', () => { placeHelpTip(h); h.classList.add('help-open'); });
     h.addEventListener('blur', () => h.classList.remove('help-open'));
-    h.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = h.classList.contains('help-open');
-      closeAllHelp();
-      if (!open) { placeHelpTip(h); h.classList.add('help-open'); }
-    });
+    h.addEventListener('click', (e) => { e.stopPropagation(); toggleHelp(h); });
+    h.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleHelp(h); } });
   });
   document.addEventListener('click', closeAllHelp);
 
