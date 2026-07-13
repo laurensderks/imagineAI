@@ -374,6 +374,57 @@ svg {
 .layer-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
 
 /* ---------------------------------------------------------------- *
+ * Inline help hint (the "?" next to a title, with a hover/focus tooltip)
+ * ---------------------------------------------------------------- */
+.title-with-help { display: flex; align-items: center; gap: 6px; }
+.title-with-help h3 { margin: 0; }
+.help-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+  user-select: none;
+}
+.help-hint:hover,
+.help-hint:focus { color: var(--text); border-color: var(--accent); outline: none; }
+.help-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: -6px;
+  z-index: 50;
+  width: max-content;
+  max-width: 210px;
+  background: #191b24;
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+.help-tip b { font-weight: 700; color: #fff; }
+.help-hint:hover .help-tip,
+.help-hint:focus .help-tip,
+.help-hint.help-open .help-tip { opacity: 1; visibility: visible; transform: none; }
+
+/* ---------------------------------------------------------------- *
  * Onboarding tour (one-time coach marks for Layers)
  * ---------------------------------------------------------------- */
 #tour { position: fixed; inset: 0; z-index: 99990; }

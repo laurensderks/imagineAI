@@ -292,18 +292,24 @@
   // A sample swoosh painted by the REAL brush engine in the current colour,
   // so the tile always shows exactly the mark you're about to make.
   const brushPreviewEl = document.getElementById('brushPreview');
+  let previewBuffer = null;
   function renderBrushPreview() {
     const cssW = brushPreviewEl.clientWidth;
     const cssH = brushPreviewEl.clientHeight;
     if (!cssW || !cssH) return;
     const dpr = window.devicePixelRatio || 1;
-    if (brushPreviewEl.width !== Math.round(cssW * dpr)) {
-      brushPreviewEl.width = Math.round(cssW * dpr);
-      brushPreviewEl.height = Math.round(cssH * dpr);
-    }
-    const pctx = brushPreviewEl.getContext('2d');
-    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    pctx.clearRect(0, 0, cssW, cssH);
+    const w = Math.round(cssW * dpr);
+    const h = Math.round(cssH * dpr);
+    if (brushPreviewEl.width !== w) { brushPreviewEl.width = w; brushPreviewEl.height = h; }
+
+    // Paint the sample swoosh at full opacity into a buffer, then composite it
+    // onto the visible preview at the current transparency — so the preview
+    // shows the same even, whole-stroke opacity the brush actually lays down.
+    if (!previewBuffer) previewBuffer = document.createElement('canvas');
+    if (previewBuffer.width !== w) { previewBuffer.width = w; previewBuffer.height = h; }
+    const bctx = previewBuffer.getContext('2d');
+    bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    bctx.clearRect(0, 0, cssW, cssH);
 
     const brush = BRUSHES[drawing.brushId] || BRUSHES.pen;
     // Map the 1..80 canvas size onto a preview-friendly width (sqrt so small
@@ -320,9 +326,16 @@
         y: cssH / 2 + Math.sin(t * Math.PI * 1.7 + 0.4) * cssH * 0.18,
         pressure: 0.12 + 0.88 * Math.sin(t * Math.PI), // swell, then taper
       };
-      if (prev) brush.stroke(pctx, prev, pt, { size, color: drawing.color, pressure: pt.pressure, state });
+      if (prev) brush.stroke(bctx, prev, pt, { size, color: drawing.color, pressure: pt.pressure, state });
       prev = pt;
     }
+
+    const pctx = brushPreviewEl.getContext('2d');
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    pctx.globalAlpha = drawing.opacity;
+    pctx.drawImage(previewBuffer, 0, 0);
+    pctx.globalAlpha = 1;
   }
 
   // ---- size slider ------------------------------------------------------
@@ -333,6 +346,56 @@
     sizeValue.textContent = sizeSlider.value;
     renderBrushPreview();
     scheduleSave();
+  });
+
+  // ---- transparency slider (0% = opaque, 100% = invisible) -------------
+  const opacitySlider = document.getElementById('opacitySlider');
+  const opacityValue = document.getElementById('opacityValue');
+  opacitySlider.addEventListener('input', () => {
+    const transparency = Number(opacitySlider.value);
+    opacityValue.textContent = transparency + '%';
+    drawing.setOpacity(1 - transparency / 100);
+    renderBrushPreview();
+    scheduleSave();
+  });
+
+  // ---- help "?" hints: tap to toggle the tooltip (touch-friendly) ------
+  document.querySelectorAll('.help-hint').forEach((h) => {
+    h.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = h.classList.contains('help-open');
+      document.querySelectorAll('.help-hint.help-open').forEach((o) => o.classList.remove('help-open'));
+      if (!open) h.classList.add('help-open');
+    });
+  });
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.help-hint.help-open').forEach((o) => o.classList.remove('help-open'));
+  });
+
+  // ---- keyboard shortcuts: [ ] opacity, - = brush size ----------------
+  function nudgeSlider(slider, delta) {
+    const v = Math.max(Number(slider.min), Math.min(Number(slider.max), Number(slider.value) + delta));
+    if (v === Number(slider.value)) return;
+    slider.value = v;
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Ignore while typing in a text field (e.g. the instructions box).
+    const el = e.target;
+    const tag = el && el.tagName;
+    if (tag === 'TEXTAREA' ||
+        (tag === 'INPUT' && !['range', 'checkbox', 'button'].includes(el.type)) ||
+        (el && el.isContentEditable)) return;
+    let handled = true;
+    switch (e.key) {
+      case '-': case '_': nudgeSlider(sizeSlider, -2); break;
+      case '=': case '+': nudgeSlider(sizeSlider, 2); break;
+      case '[': nudgeSlider(opacitySlider, 5); break;  // more transparent = less opacity
+      case ']': nudgeSlider(opacitySlider, -5); break; // less transparent = more opacity
+      default: handled = false;
+    }
+    if (handled) e.preventDefault();
   });
 
   // ---- colour swatches ----------------------------------------------
@@ -805,6 +868,7 @@
       b: st.brushId,
       c: st.color,
       s: st.size,
+      o: st.opacity != null ? st.opacity : 1,
       p: st.points.map((pt) => [
         Math.round(pt.x * 10) / 10,
         Math.round(pt.y * 10) / 10,
@@ -819,6 +883,7 @@
       brushId: typeof st.b === 'string' ? st.b : 'pen',
       color: typeof st.c === 'string' ? st.c : '#111111',
       size: typeof st.s === 'number' ? st.s : 14,
+      opacity: typeof st.o === 'number' ? st.o : 1,
       points: (Array.isArray(st.p) ? st.p : [])
         .filter((a) => Array.isArray(a) && a.length >= 2)
         .map((a) => ({ x: a[0], y: a[1], pressure: a[2] != null ? a[2] : 0.5 })),
@@ -833,6 +898,7 @@
         brush: drawing.brushId,
         color: drawing.color,
         size: drawing.size,
+        opacity: drawing.opacity,
         penOnly: drawing.isPenOnly(),
         page: snap.index,
         // Each page is { a: activeLayer, l: [back, middle, foreground] }, and
@@ -883,6 +949,10 @@
     if (typeof data.size === 'number' && data.size >= 1 && data.size <= 80) {
       sizeSlider.value = data.size;
       sizeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (typeof data.opacity === 'number' && data.opacity >= 0 && data.opacity <= 1) {
+      opacitySlider.value = Math.round((1 - data.opacity) * 100);
+      opacitySlider.dispatchEvent(new Event('input', { bubbles: true }));
     }
     if (typeof data.color === 'string' && /^#[0-9a-f]{6}$/i.test(data.color)) {
       const sw = [...colorSwatches.children, ...customPalette.children]

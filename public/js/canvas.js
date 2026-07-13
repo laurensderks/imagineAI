@@ -56,6 +56,7 @@
       this.brushId = 'pen';
       this.color = '#7c5cff';
       this.size = 14;
+      this.opacity = 1; // 1 = fully opaque (0% transparency)
       this.isEraser = false;
       this.bgColor = '#ffffff';
 
@@ -73,6 +74,7 @@
     setBrush(id) { this.brushId = id; this.isEraser = false; }
     setColor(hex) { this.color = hex; }
     setSize(px) { this.size = px; }
+    setOpacity(a) { this.opacity = Math.max(0, Math.min(1, a)); }
     setEraser(on) { this.isEraser = on; }
 
     // ---- layers ---------------------------------------------------
@@ -345,10 +347,13 @@
         brushId: this.brushId,
         color: this.color,
         size: this.size,
+        // Brush transparency is a whole-stroke opacity; the eraser ignores it.
+        opacity: this.isEraser ? 1 : this.opacity,
         points: [pt],
         _state: {}, // per-stroke scratch for brushes (width smoothing etc.)
       };
-      this._paintSegment(this.currentStroke, pt, pt);
+      if (this.currentStroke.opacity < 1) this._beginWetStroke();
+      this._strokeSegmentLive(this.currentStroke, pt, pt);
     }
 
     _onPointerMove(e) {
@@ -368,7 +373,7 @@
           pressure: last.pressure + (raw.pressure - last.pressure) * SMOOTHING,
         };
         if (Math.hypot(pt.x - last.x, pt.y - last.y) < MIN_DIST) continue;
-        this._paintSegment(this.currentStroke, last, pt);
+        this._strokeSegmentLive(this.currentStroke, last, pt);
         this.currentStroke.points.push(pt);
       }
     }
@@ -388,7 +393,7 @@
             y: last.y + (raw.y - last.y) * 0.5,
             pressure: last.pressure + (raw.pressure - last.pressure) * 0.5,
           };
-          this._paintSegment(this.currentStroke, last, pt);
+          this._strokeSegmentLive(this.currentStroke, last, pt);
           this.currentStroke.points.push(pt);
         }
       }
@@ -429,11 +434,63 @@
       });
     }
 
+    // Paint one live segment. For an opaque stroke this goes straight to the
+    // active layer as before. For a transparent one it accumulates in an
+    // off-screen "wet" buffer at full opacity, then the layer is recomposited
+    // as (snapshot below the stroke) + (wet buffer at the stroke's opacity) —
+    // so overlapping segments never bead up; the whole stroke reads as one
+    // even sheet of colour.
+    _strokeSegmentLive(stroke, p0, p1) {
+      if (stroke.opacity != null && stroke.opacity < 1) {
+        const saved = this.ctx;
+        this.ctx = this._wetCtx;
+        this._paintSegment(stroke, p0, p1);
+        this.ctx = saved;
+        this._compositeWet(stroke.opacity);
+      } else {
+        this._paintSegment(stroke, p0, p1);
+      }
+    }
+
+    _beginWetStroke() {
+      const S = LOGICAL_SIZE;
+      if (!this._wetCanvas) {
+        this._wetCanvas = document.createElement('canvas');
+        this._baseCanvas = document.createElement('canvas');
+      }
+      [this._wetCanvas, this._baseCanvas].forEach((c) => {
+        if (c.width !== S) { c.width = S; c.height = S; }
+      });
+      this._wetCtx = this._wetCanvas.getContext('2d');
+      this._baseCtx = this._baseCanvas.getContext('2d');
+      this._wetCtx.clearRect(0, 0, S, S);
+      // Snapshot the active layer as it is now — everything the wet stroke sits on.
+      this._baseCtx.clearRect(0, 0, S, S);
+      this._baseCtx.drawImage(this.layers[this.activeIndex].canvas, 0, 0);
+    }
+
+    _compositeWet(opacity) {
+      const ctx = this.layers[this.activeIndex].ctx;
+      const S = LOGICAL_SIZE;
+      ctx.clearRect(0, 0, S, S);
+      ctx.drawImage(this._baseCanvas, 0, 0);
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      ctx.drawImage(this._wetCanvas, 0, 0);
+      ctx.restore();
+    }
+
     // Replay a whole stroke into an arbitrary context (temporarily retargets
-    // this.ctx, which _paintSegment paints to).
+    // this.ctx, which _paintSegment paints to). Transparent strokes render to a
+    // temp buffer at full opacity first, then composite at the stroke's opacity.
     _paintStrokeTo(ctx, stroke) {
+      const S = LOGICAL_SIZE;
+      const transparent = stroke.opacity != null && stroke.opacity < 1;
+      const target = transparent ? this._tmpStrokeCtx() : ctx;
+      if (transparent) target.clearRect(0, 0, S, S);
+
       const saved = this.ctx;
-      this.ctx = ctx;
+      this.ctx = target;
       stroke._state = {}; // fresh scratch so tapers/dedupe replay identically
       const pts = stroke.points;
       if (pts.length === 1) {
@@ -444,6 +501,20 @@
         }
       }
       this.ctx = saved;
+
+      if (transparent) {
+        ctx.save();
+        ctx.globalAlpha = stroke.opacity;
+        ctx.drawImage(this._tmpCanvas, 0, 0);
+        ctx.restore();
+      }
+    }
+
+    _tmpStrokeCtx() {
+      const S = LOGICAL_SIZE;
+      if (!this._tmpCanvas) this._tmpCanvas = document.createElement('canvas');
+      if (this._tmpCanvas.width !== S) { this._tmpCanvas.width = S; this._tmpCanvas.height = S; }
+      return this._tmpCanvas.getContext('2d');
     }
 
     // Repaint one layer from its own history (transparent — no background fill).
