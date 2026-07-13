@@ -396,12 +396,10 @@ svg {
 .help-hint:hover,
 .help-hint:focus { color: var(--text); border-color: var(--accent); outline: none; }
 .help-tip {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: -6px;
-  z-index: 50;
+  position: fixed; /* escapes the panel's scroll clipping — JS sets top/left */
+  z-index: 200;
   width: max-content;
-  max-width: 210px;
+  max-width: 220px;
   background: #191b24;
   color: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--border);
@@ -420,8 +418,6 @@ svg {
   pointer-events: none;
 }
 .help-tip b { font-weight: 700; color: #fff; }
-.help-hint:hover .help-tip,
-.help-hint:focus .help-tip,
 .help-hint.help-open .help-tip { opacity: 1; visibility: visible; transform: none; }
 
 /* ---------------------------------------------------------------- *

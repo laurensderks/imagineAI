@@ -359,18 +359,34 @@
     scheduleSave();
   });
 
-  // ---- help "?" hints: tap to toggle the tooltip (touch-friendly) ------
-  document.querySelectorAll('.help-hint').forEach((h) => {
+  // ---- help "?" hints: hover (mouse) or tap (touch) reveal the tooltip --
+  // The tooltip is position:fixed so it can overhang the canvas instead of
+  // being clipped by the panel's scroll box; JS places it under the "?".
+  const helpHints = [...document.querySelectorAll('.help-hint')];
+  function closeAllHelp() { helpHints.forEach((o) => o.classList.remove('help-open')); }
+  function placeHelpTip(h) {
+    const tip = h.querySelector('.help-tip');
+    if (!tip) return;
+    const r = h.getBoundingClientRect();
+    tip.style.left = '0px'; // reset before measuring width
+    const tw = tip.offsetWidth;
+    const left = Math.max(8, Math.min(r.left - 6, window.innerWidth - tw - 8));
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(r.bottom + 8) + 'px';
+  }
+  helpHints.forEach((h) => {
+    h.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { placeHelpTip(h); h.classList.add('help-open'); } });
+    h.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') h.classList.remove('help-open'); });
+    h.addEventListener('focus', () => { placeHelpTip(h); h.classList.add('help-open'); });
+    h.addEventListener('blur', () => h.classList.remove('help-open'));
     h.addEventListener('click', (e) => {
       e.stopPropagation();
       const open = h.classList.contains('help-open');
-      document.querySelectorAll('.help-hint.help-open').forEach((o) => o.classList.remove('help-open'));
-      if (!open) h.classList.add('help-open');
+      closeAllHelp();
+      if (!open) { placeHelpTip(h); h.classList.add('help-open'); }
     });
   });
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.help-hint.help-open').forEach((o) => o.classList.remove('help-open'));
-  });
+  document.addEventListener('click', closeAllHelp);
 
   // ---- keyboard shortcuts: [ ] opacity, - = brush size ----------------
   function nudgeSlider(slider, delta) {
