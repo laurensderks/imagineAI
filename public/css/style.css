@@ -1358,6 +1358,96 @@ input[type="range"]::-moz-range-thumb {
  * ---------------------------------------------------------------- */
 .about-card { width: min(560px, 100%); }
 
+/* ---------------------------------------------------------------- *
+ * Gallery
+ * ---------------------------------------------------------------- */
+.gallery-card { width: min(760px, 100%); }
+
+.gallery-body {
+  padding: 18px 22px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gallery-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+.gallery-note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.gallery-note[hidden] { display: none; }
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.gallery-tile {
+  position: relative;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev-2);
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.gallery-tile:hover { border-color: var(--accent); }
+.gallery-tile:active { transform: scale(0.98); }
+.gallery-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gallery-tile-date {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gallery-msg {
+  margin: 0;
+  padding: 28px 0;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-faint);
+}
+.gallery-msg[hidden] { display: none; }
+
+/* Larger view of one saved render */
+.viewer-card { width: min(720px, 100%); }
+.viewer-body {
+  padding: 18px 22px;
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+}
+.viewer-body img {
+  max-width: 100%;
+  max-height: 60vh;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
 .about-body {
   padding: 20px 22px 24px;
   overflow-y: auto;

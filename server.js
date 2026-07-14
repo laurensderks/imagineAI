@@ -8,6 +8,7 @@
 // then returns the rendered image back as base64.
 
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -54,6 +55,51 @@ async function getTokenBalance(token, userId) {
   if (!r.ok) return null;
   const rows = await r.json();
   return rows.length ? rows[0].tokens : null;
+}
+
+// How many renders we keep per user. Older ones are deleted automatically.
+const GALLERY_LIMIT = 5;
+
+// Save a successful render to the user's gallery: upload the PNG to Storage,
+// record the metadata row, then prune anything past the newest GALLERY_LIMIT.
+// All calls go through the user's own token, so Storage/table RLS applies.
+async function saveToGallery(token, userId, base64Data, style) {
+  const authHeaders = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` };
+  const path = `${userId}/${crypto.randomUUID()}.png`;
+
+  const upload = await fetch(`${SUPABASE_URL}/storage/v1/object/renders/${path}`, {
+    method: 'POST',
+    headers: { ...authHeaders, 'Content-Type': 'image/png' },
+    body: Buffer.from(base64Data, 'base64'),
+  });
+  if (!upload.ok) throw new Error(`storage upload failed: ${await upload.text()}`);
+
+  const insert = await fetch(`${SUPABASE_URL}/rest/v1/renders`, {
+    method: 'POST',
+    headers: { ...authHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ user_id: userId, path, style }),
+  });
+  if (!insert.ok) throw new Error(`renders insert failed: ${await insert.text()}`);
+
+  // Anything beyond the newest GALLERY_LIMIT gets removed (file + row).
+  const staleRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/renders?user_id=eq.${userId}&select=id,path` +
+      `&order=created_at.desc&offset=${GALLERY_LIMIT}`,
+    { headers: authHeaders }
+  );
+  if (!staleRes.ok) return;
+  const stale = await staleRes.json();
+  if (!stale.length) return;
+
+  await fetch(`${SUPABASE_URL}/storage/v1/object/renders`, {
+    method: 'DELETE',
+    headers: { ...authHeaders, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefixes: stale.map((r) => r.path) }),
+  });
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/renders?id=in.(${stale.map((r) => r.id).join(',')})`,
+    { method: 'DELETE', headers: authHeaders }
+  );
 }
 
 // Atomically spend `amount` tokens for the caller. Returns the new balance, or
@@ -320,6 +366,14 @@ app.post('/api/render', async (req, res) => {
     // Render succeeded — now charge for it. Deducting only on success means a
     // failed render never costs the user a token.
     const newBalance = await spendTokens(token, cost);
+
+    // Save to the user's gallery. Never let a storage problem fail a render the
+    // user has already paid for — log it and carry on.
+    try {
+      await saveToGallery(token, user.id, rendered.b64_json, style);
+    } catch (err) {
+      console.error('Gallery save failed:', err.message);
+    }
 
     return res.json({
       imageBase64: `data:image/png;base64,${rendered.b64_json}`,
