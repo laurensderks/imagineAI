@@ -774,6 +774,15 @@
   renderBtn.addEventListener('click', async () => {
     if (renderBtn.disabled) return;
 
+    // Rendering is signed-in only. If they're not logged in, send them to
+    // Google sign-in instead of rendering. Their drawing is safe — it's
+    // autosaved to localStorage and restored when they land back here.
+    const token = window.Auth ? await window.Auth.getToken() : null;
+    if (!token) {
+      if (window.Auth) window.Auth.signInWithGoogle();
+      return;
+    }
+
     const originalDataUrl = drawing.toDataURL();
     originalPreview.src = originalDataUrl;
 
@@ -787,7 +796,10 @@
     try {
       const res = await fetch('/api/render', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           imageBase64: originalDataUrl,
           style: selectedStyle,
@@ -805,6 +817,11 @@
       renderedPreview.hidden = false;
       loadingState.hidden = true;
       downloadBtn.disabled = false;
+
+      // Reflect the token spent on this render in the account pill.
+      if (window.Auth && typeof data.tokens === 'number') {
+        window.Auth.setTokens(data.tokens);
+      }
     } catch (err) {
       errorMessage.textContent = err.message || 'Something went wrong while rendering. Please try again.';
       errorState.hidden = false;

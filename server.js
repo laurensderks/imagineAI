@@ -15,6 +15,68 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Supabase project — used to verify that whoever calls /api/render is a real
+// signed-in user. The publishable key is public (it ships in the browser too);
+// it is NOT the secret service_role key.
+const SUPABASE_URL = 'https://phcbyouccxunyavzzwrf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_y16rq43HiCYrgfogYoIfZw_5R_KnMu6';
+
+// How many tokens each render engine costs.
+const RENDER_COST = { fast: 1, quality: 4 };
+
+function bearerToken(req) {
+  const header = req.headers.authorization || '';
+  return header.startsWith('Bearer ') ? header.slice(7) : null;
+}
+
+// Resolve the signed-in user from a Bearer token by asking Supabase to validate
+// it. Returns the user object, or null if missing/invalid/expired.
+async function getUserFromToken(token) {
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (err) {
+    console.error('Auth check failed:', err.message);
+    return null;
+  }
+}
+
+// Read the caller's token balance (RLS lets a user read only their own row).
+async function getTokenBalance(token, userId) {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=tokens`,
+    { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+  );
+  if (!r.ok) return null;
+  const rows = await r.json();
+  return rows.length ? rows[0].tokens : null;
+}
+
+// Atomically spend `amount` tokens for the caller. Returns the new balance, or
+// null if there weren't enough (or the call failed).
+async function spendTokens(token, amount) {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/spend_tokens`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ amount }),
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (err) {
+    console.error('spend_tokens failed:', err.message);
+    return null;
+  }
+}
+
 // Drawings can be reasonably large base64 PNGs, so raise the body size limit.
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
@@ -186,6 +248,14 @@ const RENDER_ENGINES = {
 
 app.post('/api/render', async (req, res) => {
   try {
+    // Rendering is a paid, signed-in-only feature. Drawing/download stay free
+    // and anonymous, but this endpoint requires a valid Supabase session.
+    const token = bearerToken(req);
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: 'Please sign in to render your drawing.' });
+    }
+
     const { imageBase64, style, instructions, engine } = req.body || {};
 
     if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -196,6 +266,21 @@ app.post('/api/render', async (req, res) => {
       return res.status(400).json({ error: `Unknown or missing render style: "${style}".` });
     }
     const engineConfig = RENDER_ENGINES[engine] || RENDER_ENGINES.fast;
+    const cost = RENDER_COST[engine] || RENDER_COST.fast;
+
+    // Check the balance up front so we don't call OpenAI for someone who can't
+    // afford it. The actual deduction happens only after a successful render.
+    const balance = await getTokenBalance(token, user.id);
+    if (balance === null) {
+      return res.status(500).json({ error: 'Could not read your token balance. Please try again.' });
+    }
+    if (balance < cost) {
+      return res.status(402).json({
+        error: `This render costs ${cost} token${cost > 1 ? 's' : ''}, but you have ${balance}. Top up to keep rendering.`,
+        tokens: balance,
+        needed: cost,
+      });
+    }
 
     // Optional free-text guidance from the user, layered on top of the style prompt.
     if (typeof instructions === 'string' && instructions.trim()) {
@@ -232,7 +317,14 @@ app.post('/api/render', async (req, res) => {
       throw new Error('OpenAI response did not include image data.');
     }
 
-    return res.json({ imageBase64: `data:image/png;base64,${rendered.b64_json}` });
+    // Render succeeded — now charge for it. Deducting only on success means a
+    // failed render never costs the user a token.
+    const newBalance = await spendTokens(token, cost);
+
+    return res.json({
+      imageBase64: `data:image/png;base64,${rendered.b64_json}`,
+      tokens: newBalance === null ? balance - cost : newBalance,
+    });
   } catch (err) {
     console.error('Render error:', err);
     const message =

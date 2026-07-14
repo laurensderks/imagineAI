@@ -51,6 +51,22 @@
       <button class="icon-btn only-mobile" id="toggleRightPanel" aria-label="Toggle render styles">
         <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 10l-6.6 1.4L12 18l-1.4-6.6L4 10l6.6-1.4z"/></svg>
       </button>
+
+      <!-- Account pill: anonymous drawing stays free; this only signs you in -->
+      <div class="account" id="account">
+        <button class="account-btn" id="accountBtn" title="Sign in with Google" aria-haspopup="true">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          <span class="account-label" id="accountLabel">Sign in</span>
+        </button>
+        <div class="account-menu" id="accountMenu" hidden>
+          <span class="account-email" id="accountEmail"></span>
+          <div class="account-tokens">
+            <span>Tokens</span>
+            <span class="account-tokens-value" id="tokenBalance">&mdash;</span>
+          </div>
+          <button class="account-signout" id="accountSignout">Sign out</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -305,6 +321,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/auth.js"></script>
 <script src="js/splash.js"></script>
 <script src="js/brushes.js"></script>
 <script src="js/canvas.js"></script>

@@ -2,3 +2,6 @@ node_modules/
 .env
 *.log
 .claude/
+
+# Google OAuth client secret download — must never be committed
+client_secret*.json
