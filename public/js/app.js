@@ -790,12 +790,18 @@
   renderBtn.addEventListener('click', async () => {
     if (renderBtn.disabled) return;
 
-    // Rendering is signed-in only. If they're not logged in, send them to
-    // Google sign-in instead of rendering. Their drawing is safe — it's
-    // autosaved to localStorage and restored when they land back here.
-    const token = window.Auth ? await window.Auth.getToken() : null;
-    if (!token) {
+    // Rendering is signed-in only. Check that synchronously — getUser() reads
+    // cached state, so we stay inside the user's tap and the sign-in popup
+    // isn't blocked (iOS Safari blocks window.open after any await).
+    if (!window.Auth || !window.Auth.getUser()) {
       if (window.Auth) window.Auth.signInWithGoogle();
+      return;
+    }
+
+    // Their drawing is safe either way — it's autosaved to localStorage.
+    const token = await window.Auth.getToken();
+    if (!token) {
+      window.Auth.signInWithGoogle();
       return;
     }
 

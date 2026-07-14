@@ -25,16 +25,19 @@
 
   <!-- Top bar -->
   <header class="topbar">
-    <button class="icon-btn only-mobile" id="toggleLeftPanel" aria-label="Toggle tools">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-    </button>
+    <div class="topbar-left">
+      <button class="icon-btn only-mobile" id="toggleLeftPanel" aria-label="Toggle tools">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
 
-    <div class="brand">
-      <span class="brand-mark"></span>
-      <span class="brand-name">ImagineAI</span>
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">ImagineAI</span>
+      </div>
     </div>
 
-    <div class="topbar-actions">
+    <!-- Canvas tools, centred -->
+    <div class="topbar-center">
       <button class="icon-btn" id="penOnlyBtn" title="Draw with pencil only" aria-label="Toggle draw with pencil only" hidden>
         <svg viewBox="0 0 24 24"><path d="M4 20l4-1L18.5 8.5a2.1 2.1 0 0 0-3-3L5 16l-1 4z"/><path d="M13.5 6.5l3 3"/></svg>
       </button>
@@ -48,12 +51,14 @@
       <button class="icon-btn" id="clearBtn" title="Clear canvas" aria-label="Clear canvas">
         <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>
       </button>
-      <button class="icon-btn only-mobile" id="toggleRightPanel" aria-label="Toggle render styles">
-        <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 10l-6.6 1.4L12 18l-1.4-6.6L4 10l6.6-1.4z"/></svg>
-      </button>
-
       <button class="icon-btn" id="galleryBtn" title="My gallery" aria-label="My gallery">
         <svg viewBox="0 0 24 24"><rect x="8" y="3" width="13" height="13" rx="2"/><path d="M16 21H5a2 2 0 0 1-2-2V8"/><path d="M11 12l2.5-2.5L18 14"/></svg>
+      </button>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="icon-btn only-mobile" id="toggleRightPanel" aria-label="Toggle render styles">
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 10l-6.6 1.4L12 18l-1.4-6.6L4 10l6.6-1.4z"/></svg>
       </button>
 
       <button class="icon-btn" id="aboutBtn" title="About this project" aria-label="About this project">

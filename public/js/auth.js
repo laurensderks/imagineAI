@@ -24,40 +24,46 @@
   const listeners = [];
   function notify() { listeners.forEach((fn) => fn(currentUser)); }
 
-  async function signInWithGoogle() {
-    // Open Google in a centred popup so the user never leaves the app. The
-    // popup lands on /auth-callback.html, which completes the sign-in and
-    // closes itself; the session lands in localStorage, which this window
-    // picks up via onAuthStateChange (fires across windows on the same origin).
-    const { data, error } = await sb.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth-callback.html`,
-        skipBrowserRedirect: true, // give us the URL instead of navigating away
-      },
-    });
-    if (error || !data || !data.url) {
-      console.error('[auth] sign-in failed:', error && error.message);
-      return;
-    }
-
+  // NOTE: deliberately not async. The window MUST be opened synchronously,
+  // while we're still inside the user's click/tap — iOS Safari blocks
+  // window.open once anything has been awaited, which would silently drop us
+  // to a full-page redirect. So we open a blank window first, then point it at
+  // Google when the URL comes back.
+  function signInWithGoogle() {
     const w = 500;
     const h = 650;
     const left = window.screenX + (window.outerWidth - w) / 2;
     const top = window.screenY + (window.outerHeight - h) / 2;
     const popup = window.open(
-      data.url,
+      'about:blank',
       'imagineai-google-signin',
       `width=${w},height=${h},left=${left},top=${top}`
     );
 
-    // If the browser blocked the popup, fall back to a full-page redirect.
-    if (!popup || popup.closed) {
-      await sb.auth.signInWithOAuth({
+    // The window lands on /auth-callback.html, which completes the sign-in and
+    // closes itself; the session lands in localStorage, which this window
+    // picks up via onAuthStateChange (fires across windows on the same origin).
+    sb.auth
+      .signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin },
+        options: {
+          redirectTo: `${window.location.origin}/auth-callback.html`,
+          skipBrowserRedirect: true, // give us the URL instead of navigating away
+        },
+      })
+      .then(({ data, error }) => {
+        if (error || !data || !data.url) {
+          console.error('[auth] sign-in failed:', error && error.message);
+          if (popup) popup.close();
+          return;
+        }
+        if (popup && !popup.closed) {
+          popup.location.href = data.url;
+        } else {
+          // Popup was blocked outright — fall back to a full-page redirect.
+          window.location.href = data.url;
+        }
       });
-    }
   }
 
   async function signOut() {
