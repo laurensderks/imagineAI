@@ -25,13 +25,39 @@
   function notify() { listeners.forEach((fn) => fn(currentUser)); }
 
   async function signInWithGoogle() {
-    // Full-page redirect to Google, then back to wherever we are now
-    // (localhost during dev, the live URL in production).
-    const { error } = await sb.auth.signInWithOAuth({
+    // Open Google in a centred popup so the user never leaves the app. The
+    // popup lands on /auth-callback.html, which completes the sign-in and
+    // closes itself; the session lands in localStorage, which this window
+    // picks up via onAuthStateChange (fires across windows on the same origin).
+    const { data, error } = await sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: `${window.location.origin}/auth-callback.html`,
+        skipBrowserRedirect: true, // give us the URL instead of navigating away
+      },
     });
-    if (error) console.error('[auth] sign-in failed:', error.message);
+    if (error || !data || !data.url) {
+      console.error('[auth] sign-in failed:', error && error.message);
+      return;
+    }
+
+    const w = 500;
+    const h = 650;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    const popup = window.open(
+      data.url,
+      'imagineai-google-signin',
+      `width=${w},height=${h},left=${left},top=${top}`
+    );
+
+    // If the browser blocked the popup, fall back to a full-page redirect.
+    if (!popup || popup.closed) {
+      await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+    }
   }
 
   async function signOut() {
@@ -57,9 +83,20 @@
   }
 
   // Fires once on load with any restored session, and again on every
-  // sign-in / sign-out.
+  // sign-in / sign-out (including when the sign-in popup writes the session
+  // to localStorage — that propagates to this window on the same origin).
   sb.auth.onAuthStateChange((_event, session) => {
     currentUser = session ? session.user : null;
+    notify();
+    refreshTokens();
+  });
+
+  // Backup: the sign-in popup posts this when it finishes, in case the
+  // cross-window storage event doesn't fire. Re-read the session explicitly.
+  window.addEventListener('message', async (e) => {
+    if (e.origin !== window.location.origin || e.data !== 'imagineai-auth-done') return;
+    const { data } = await sb.auth.getSession();
+    currentUser = data.session ? data.session.user : null;
     notify();
     refreshTokens();
   });
