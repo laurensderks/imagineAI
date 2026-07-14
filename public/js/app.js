@@ -677,10 +677,26 @@
   }
 
   // ---- undo / clear -----------------------------------------------------
-  document.getElementById('undoBtn').addEventListener('click', () => {
+  function doUndo() {
     drawing.undo();
     updateRenderAvailability();
     scheduleSave();
+  }
+  document.getElementById('undoBtn').addEventListener('click', doUndo);
+
+  // Ctrl+Z (Cmd+Z on Mac) undoes the last stroke. The main shortcut handler
+  // above ignores Ctrl/Cmd, so this needs its own listener.
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+    if (e.key !== 'z' && e.key !== 'Z') return;
+    // Ignore while typing in a text field (e.g. the instructions box).
+    const el = e.target;
+    const tag = el && el.tagName;
+    if (tag === 'TEXTAREA' ||
+        (tag === 'INPUT' && !['range', 'checkbox', 'button'].includes(el.type)) ||
+        (el && el.isContentEditable)) return;
+    e.preventDefault();
+    doUndo();
   });
   document.getElementById('clearBtn').addEventListener('click', () => {
     if (!drawing.hasDrawing()) return;
