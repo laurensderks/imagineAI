@@ -783,6 +783,7 @@
   const loadingState = document.getElementById('loadingState');
   const errorState = document.getElementById('errorState');
   const errorMessage = document.getElementById('errorMessage');
+  const errorBuyBtn = document.getElementById('errorBuyBtn');
   const downloadBtn = document.getElementById('downloadBtn');
   const extraInstructions = document.getElementById('extraInstructions');
   const loadingSubtext = document.getElementById('loadingSubtext');
@@ -832,7 +833,9 @@
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || `Server responded with ${res.status}`);
+        const err = new Error(data.error || `Server responded with ${res.status}`);
+        err.status = res.status; // 402 = out of tokens, so we can offer a top-up
+        throw err;
       }
 
       renderedPreview.src = data.imageBase64;
@@ -846,9 +849,16 @@
       }
     } catch (err) {
       errorMessage.textContent = err.message || 'Something went wrong while rendering. Please try again.';
+      // Out of tokens — offer a top-up right where they hit the wall.
+      errorBuyBtn.hidden = err.status !== 402;
       errorState.hidden = false;
       loadingState.hidden = true;
     }
+  });
+
+  errorBuyBtn.addEventListener('click', () => {
+    resultOverlay.classList.remove('open');
+    if (window.Billing) window.Billing.openBuy();
   });
 
   document.getElementById('closeResult').addEventListener('click', () => {

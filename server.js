@@ -22,8 +22,18 @@ const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = 'https://phcbyouccxunyavzzwrf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_y16rq43HiCYrgfogYoIfZw_5R_KnMu6';
 
-// How many tokens each render engine costs.
-const RENDER_COST = { fast: 1, quality: 4 };
+// How many tokens each render engine costs. High-res is only ~1.4x the real
+// cost of fast (measured: AUD $0.24 vs $0.17 — images.edit charges for the
+// input image too, which flattens the difference), so charging 2 keeps the
+// better-looking result within reach instead of pushing people to `fast`.
+const RENDER_COST = { fast: 1, quality: 2 };
+
+// Token packs, priced in USD. unit_amount is in cents (Stripe's smallest unit).
+const TOKEN_PACKS = {
+  small:  { tokens: 15, unit_amount: 500,  name: '15 tokens' },
+  medium: { tokens: 35, unit_amount: 1000, name: '35 tokens' },
+  large:  { tokens: 75, unit_amount: 2000, name: '75 tokens' },
+};
 
 function bearerToken(req) {
   const header = req.headers.authorization || '';
@@ -125,8 +135,175 @@ async function spendTokens(token, amount) {
 
 // Drawings can be reasonably large base64 PNGs, so raise the body size limit.
 app.use(cors());
+
+// ---------------------------------------------------------------------------
+// Stripe
+// ---------------------------------------------------------------------------
+
+// Lazily created so the server still boots (and the app still works) without
+// payment keys configured — the Buy buttons just report "not configured".
+let stripeClient = null;
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  if (!stripeClient) stripeClient = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  return stripeClient;
+}
+
+// Stripe calls us with no user session attached, so unlike /api/render we can't
+// reuse the caller's JWT — these go through the service_role key instead.
+function serviceHeaders() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+  return { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+}
+
+// Claims the purchase. The Stripe session id is the table's primary key, so a
+// duplicate webhook delivery conflicts here and returns false instead of
+// crediting twice. Stripe retries deliveries, so this matters.
+async function recordPurchase(session, userId, tokens) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/purchases`, {
+    method: 'POST',
+    headers: { ...serviceHeaders(), Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      id: session.id,
+      user_id: userId,
+      tokens,
+      amount_cents: session.amount_total,
+      currency: session.currency,
+    }),
+  });
+  if (r.status === 409) return false; // already processed
+  if (!r.ok) throw new Error(`purchase insert failed: ${await r.text()}`);
+  return true;
+}
+
+// Release the claim so a Stripe retry can have another go.
+async function deletePurchase(sessionId) {
+  await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${sessionId}`, {
+    method: 'DELETE',
+    headers: serviceHeaders(),
+  });
+}
+
+async function creditTokens(userId, amount) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/credit_tokens`, {
+    method: 'POST',
+    headers: serviceHeaders(),
+    body: JSON.stringify({ p_user: userId, p_amount: amount }),
+  });
+  if (!r.ok) throw new Error(`credit_tokens failed: ${await r.text()}`);
+  return await r.json();
+}
+
+// Mounted BEFORE express.json() on purpose: signature verification needs the
+// raw, unparsed body. Parsing it first would silently break every webhook.
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const stripe = getStripe();
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripe || !secret) return res.status(501).send('Stripe is not configured.');
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], secret);
+  } catch (err) {
+    // This check is what proves the request genuinely came from Stripe, and not
+    // from someone POSTing a fake "payment succeeded" to mint free tokens.
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const userId = session.metadata && session.metadata.supabase_user_id;
+    const tokens = parseInt((session.metadata && session.metadata.tokens) || '', 10);
+
+    if (session.payment_status !== 'paid') return res.json({ received: true });
+    if (!userId || !Number.isFinite(tokens)) {
+      console.error('Webhook is missing metadata; ignoring session', session.id);
+      return res.json({ received: true });
+    }
+
+    try {
+      const isNew = await recordPurchase(session, userId, tokens);
+      if (!isNew) {
+        console.log(`Duplicate webhook for ${session.id} — already credited.`);
+        return res.json({ received: true });
+      }
+      try {
+        const balance = await creditTokens(userId, tokens);
+        console.log(`Credited ${tokens} tokens to ${userId}. New balance: ${balance}`);
+      } catch (err) {
+        // Undo the claim so Stripe's retry can credit them properly.
+        await deletePurchase(session.id);
+        throw err;
+      }
+    } catch (err) {
+      console.error('Failed to credit purchase:', err.message);
+      return res.status(500).send('Crediting failed.');
+    }
+  }
+
+  return res.json({ received: true });
+});
+
 app.use(express.json({ limit: '25mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// The packs, so the frontend renders prices from one source of truth.
+app.get('/api/packs', (_req, res) => {
+  res.json(
+    Object.entries(TOKEN_PACKS).map(([id, p]) => ({
+      id,
+      tokens: p.tokens,
+      price: p.unit_amount / 100,
+    }))
+  );
+});
+
+app.post('/api/checkout', async (req, res) => {
+  try {
+    const stripe = getStripe();
+    if (!stripe) {
+      return res.status(501).json({ error: 'Payments are not set up on this server yet.' });
+    }
+
+    const token = bearerToken(req);
+    const user = await getUserFromToken(token);
+    if (!user) return res.status(401).json({ error: 'Please sign in to buy tokens.' });
+
+    const pack = TOKEN_PACKS[(req.body || {}).pack];
+    if (!pack) return res.status(400).json({ error: 'Unknown token pack.' });
+
+    const origin = req.headers.origin || `http://localhost:${PORT}`;
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      // No payment_method_types on purpose — omitting it enables dynamic
+      // payment methods, so Stripe shows each customer the methods most likely
+      // to convert, configurable from the Dashboard without code changes.
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: pack.unit_amount,
+            product_data: { name: `Inkmagik — ${pack.name}` },
+          },
+        },
+      ],
+      customer_email: user.email,
+      client_reference_id: user.id,
+      // The webhook reads these back to know who to credit, and how much.
+      metadata: { supabase_user_id: user.id, tokens: String(pack.tokens) },
+      success_url: `${origin}/?checkout=success`,
+      cancel_url: `${origin}/?checkout=cancelled`,
+    });
+
+    return res.json({ url: session.url });
+  } catch (err) {
+    console.error('Checkout error:', err);
+    return res.status(500).json({ error: 'Could not start checkout. Please try again.' });
+  }
+});
 
 // Lazily create the OpenAI client only if a key is configured, so the server
 // can still boot (and serve the drawing app) without one — the Render button
