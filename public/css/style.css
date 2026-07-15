@@ -122,6 +122,7 @@ svg {
 }
 
 .icon-btn {
+  position: relative; /* anchors the "new" dot */
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
@@ -133,6 +134,22 @@ svg {
   justify-content: center;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+/* "Something new here" dot. The button's title/aria-label says so too, so the
+   meaning never rests on the colour alone. The ring keeps it legible wherever
+   it lands on the icon beneath. */
+.icon-btn.has-new::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 2px var(--bg-elev-2);
+  pointer-events: none;
 }
 .icon-btn:hover { background: #262835; border-color: #383b4a; }
 .icon-btn:active { transform: scale(0.94); }

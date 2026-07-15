@@ -125,8 +125,51 @@
     }
   }
 
+  // ---- "new render" dot ------------------------------------------------
+  // The dot means: there is something in your gallery newer than the last time
+  // you opened it. The marker is per-device on purpose — render on the iPad and
+  // the dot is waiting for you on the PC.
+  const SEEN_KEY = 'inkmagik.gallerySeen';
+  const galleryBtn = document.getElementById('galleryBtn');
+
+  function setDot(on) {
+    galleryBtn.classList.toggle('has-new', on);
+    // Not colour alone: the label carries it too, for screen readers and for
+    // anyone who can't distinguish the dot.
+    galleryBtn.title = on ? 'My gallery — new render' : 'My gallery';
+    galleryBtn.setAttribute('aria-label', galleryBtn.title);
+  }
+
+  async function refreshDot() {
+    const user = window.Auth && window.Auth.getUser();
+    if (!user) return setDot(false);
+    try {
+      const { data, error } = await window.Auth.client
+        .from('renders')
+        .select('created_at')
+        .eq('pruned', false)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error || !data || !data.length) return setDot(false);
+      const newest = new Date(data[0].created_at).getTime();
+      const seen = Number(localStorage.getItem(SEEN_KEY) || 0);
+      setDot(newest > seen);
+    } catch (_) {
+      setDot(false);
+    }
+  }
+
+  function markSeen() {
+    localStorage.setItem(SEEN_KEY, String(Date.now()));
+    setDot(false);
+  }
+
+  window.Gallery = { refreshDot };
+  if (window.Auth) window.Auth.onChange(() => refreshDot());
+
   document.getElementById('galleryBtn').addEventListener('click', () => {
     galleryOverlay.classList.add('open');
+    markSeen();
     loadGallery();
   });
   document.getElementById('closeGallery').addEventListener('click', () => {

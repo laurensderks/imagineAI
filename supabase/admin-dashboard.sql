@@ -191,3 +191,22 @@ $$;
 
 revoke execute on function public.get_analytics() from public, anon, authenticated;
 grant  execute on function public.get_analytics() to service_role;
+
+-- When something worth looking at last happened, for the "new data" dot on the
+-- analytics button. Deliberately ignores page_view events: those arrive
+-- constantly (bots included), so including them would leave the dot always lit,
+-- and a dot that never turns off tells you nothing.
+create or replace function public.get_latest_activity()
+returns timestamptz
+language sql security definer set search_path = public stable as $$
+  select max(t) from (
+    select max(created_at) as t from renders
+    union all
+    select max(created_at) from profiles
+    union all
+    select max(created_at) from purchases
+  ) x;
+$$;
+
+revoke execute on function public.get_latest_activity() from public, anon, authenticated;
+grant  execute on function public.get_latest_activity() to service_role;

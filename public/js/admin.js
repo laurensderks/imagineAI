@@ -337,12 +337,35 @@
     }
   }
 
-  adminBtn.addEventListener('click', open);
+  // ---- "new data" dot ---------------------------------------------------
+  // Lit when a render, signup or purchase has happened since you last opened
+  // the dashboard. Page views are excluded server-side — they arrive constantly
+  // (bots too), so counting them would leave the dot permanently on, and a dot
+  // that never turns off may as well not exist.
+  const SEEN_KEY = 'inkmagik.analyticsSeen';
+
+  function setDot(on) {
+    adminBtn.classList.toggle('has-new', on);
+    // The label carries it too, so it isn't colour alone.
+    adminBtn.title = on ? 'Analytics — new activity' : 'Analytics';
+    adminBtn.setAttribute('aria-label', adminBtn.title);
+  }
+
+  function markSeen() {
+    localStorage.setItem(SEEN_KEY, String(Date.now()));
+    setDot(false);
+  }
+
+  adminBtn.addEventListener('click', () => {
+    markSeen();
+    open();
+  });
   document.getElementById('closeAdmin').addEventListener('click', () => {
     overlay.classList.remove('open');
   });
 
-  // Ask the server whether this session is an admin; show the button if so.
+  // Ask the server whether this session is an admin; show the button if so, and
+  // light the dot if anything has happened since we last looked.
   if (window.Auth) {
     window.Auth.onChange(async (user) => {
       if (!user) {
@@ -354,6 +377,11 @@
         const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
         const me = await res.json();
         adminBtn.hidden = !me.admin;
+        if (me.admin && me.latestActivity) {
+          const latest = new Date(me.latestActivity).getTime();
+          const seen = Number(localStorage.getItem(SEEN_KEY) || 0);
+          setDot(latest > seen);
+        }
       } catch (_) {
         adminBtn.hidden = true;
       }

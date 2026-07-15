@@ -317,9 +317,27 @@ function isAdmin(user) {
 
 // Tells the frontend whether to show the dashboard button at all. Purely
 // cosmetic — /api/analytics re-checks, so hiding the button is not the gate.
+// Also returns when something worth looking at last happened, for the
+// "new data" dot. Only admins get the timestamp.
 app.get('/api/me', async (req, res) => {
   const user = await getUserFromToken(bearerToken(req));
-  return res.json({ admin: isAdmin(user) });
+  const admin = isAdmin(user);
+
+  let latestActivity = null;
+  if (admin && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_latest_activity`, {
+        method: 'POST',
+        headers: serviceHeaders(),
+        body: '{}',
+      });
+      if (r.ok) latestActivity = await r.json();
+    } catch (err) {
+      console.error('latest activity lookup failed:', err.message);
+    }
+  }
+
+  return res.json({ admin, latestActivity });
 });
 
 app.get('/api/analytics', async (req, res) => {

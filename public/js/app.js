@@ -847,6 +847,8 @@
       if (window.Auth && typeof data.tokens === 'number') {
         window.Auth.setTokens(data.tokens);
       }
+      // The render just landed in the gallery — light the dot on its button.
+      if (window.Gallery) window.Gallery.refreshDot();
     } catch (err) {
       errorMessage.textContent = err.message || 'Something went wrong while rendering. Please try again.';
       // Out of tokens — offer a top-up right where they hit the wall.
