@@ -1,4 +1,4 @@
--- ImagineAI — gallery schema (Storage bucket + metadata table)
+-- Inkmagik — gallery schema (Storage bucket + metadata table)
 -- Run once in the Supabase dashboard → SQL Editor → New query → Run.
 -- Safe to re-run.
 

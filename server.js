@@ -1,4 +1,4 @@
-// ImagineAI backend
+// Inkmagik backend
 //
 // This is the ONLY place the OpenAI API key is used. The browser never sees it.
 // The frontend posts the drawing as a base64 PNG + a chosen style id to
@@ -390,7 +390,7 @@ app.post('/api/render', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`ImagineAI running at http://localhost:${PORT}`);
+  console.log(`Inkmagik running at http://localhost:${PORT}`);
   if (!process.env.OPENAI_API_KEY) {
     console.log(
       'Note: OPENAI_API_KEY is not set — drawing works, but the Render button will show a ' +

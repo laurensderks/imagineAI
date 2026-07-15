@@ -1,4 +1,4 @@
--- ImagineAI — token/credits schema
+-- Inkmagik — token/credits schema
 -- Run this once in the Supabase dashboard → SQL Editor → New query → Run.
 -- It is safe to re-run (idempotent where it matters).
 

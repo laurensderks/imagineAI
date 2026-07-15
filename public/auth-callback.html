@@ -43,7 +43,7 @@
     function finish() {
       try {
         if (window.opener) {
-          window.opener.postMessage('imagineai-auth-done', window.location.origin);
+          window.opener.postMessage('inkmagik-auth-done', window.location.origin);
         }
       } catch (_) { /* ignore */ }
       window.close();

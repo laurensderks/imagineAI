@@ -36,7 +36,7 @@
     const top = window.screenY + (window.outerHeight - h) / 2;
     const popup = window.open(
       'about:blank',
-      'imagineai-google-signin',
+      'inkmagik-google-signin',
       `width=${w},height=${h},left=${left},top=${top}`
     );
 
@@ -100,7 +100,7 @@
   // Backup: the sign-in popup posts this when it finishes, in case the
   // cross-window storage event doesn't fire. Re-read the session explicitly.
   window.addEventListener('message', async (e) => {
-    if (e.origin !== window.location.origin || e.data !== 'imagineai-auth-done') return;
+    if (e.origin !== window.location.origin || e.data !== 'inkmagik-auth-done') return;
     const { data } = await sb.auth.getSession();
     currentUser = data.session ? data.session.user : null;
     notify();

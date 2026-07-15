@@ -110,7 +110,7 @@
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
-      a.download = 'imagineai-render.png';
+      a.download = 'inkmagik-render.png';
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {

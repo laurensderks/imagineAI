@@ -1,4 +1,4 @@
-# ImagineAI
+# Inkmagik
 
 A minimalist browser drawing studio: draw with 12 brush types, then render your
 sketch through OpenAI's image API in one of 7 art styles.

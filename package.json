@@ -1,5 +1,5 @@
 {
-  "name": "imagineai",
+  "name": "inkmagik",
   "version": "1.0.0",
   "description": "A sleek, minimalistic browser drawing studio with AI-powered render styles.",
   "main": "server.js",

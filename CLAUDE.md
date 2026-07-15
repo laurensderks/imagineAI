@@ -1,4 +1,4 @@
-# ImagineAI — project brief for Claude
+# Inkmagik — project brief for Claude
 
 A browser-based drawing studio for students: draw on a canvas, optionally trace
 over an uploaded photo, then render the drawing through OpenAI's image API in

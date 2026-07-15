@@ -12,7 +12,7 @@
  */
 
 (function () {
-  const KEY = 'imagineai.onboarded.layers';
+  const KEY = 'inkmagik.onboarded.layers';
   if (localStorage.getItem(KEY)) return;
 
   const steps = [

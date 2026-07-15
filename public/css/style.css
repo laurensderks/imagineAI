@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------- *
- * ImagineAI — theme tokens
+ * Inkmagik — theme tokens
  * ---------------------------------------------------------------- */
 :root {
   --bg: #0e0f13;
@@ -100,7 +100,7 @@ svg {
   width: 20px;
   height: 20px;
   border-radius: 7px;
-  background: url("../img/branding/imagineai-logo.png") center / cover no-repeat;
+  background: url("../img/branding/inkmagik-logo.png") center / cover no-repeat;
   box-shadow: 0 0 16px rgba(124, 92, 255, 0.55);
 }
 
@@ -1572,7 +1572,7 @@ input[type="range"]::-moz-range-thumb {
   width: 46px;
   height: 46px;
   border-radius: 14px;
-  background: url("../img/branding/imagineai-logo.png") center / cover no-repeat;
+  background: url("../img/branding/inkmagik-logo.png") center / cover no-repeat;
   box-shadow: 0 0 30px rgba(124, 92, 255, 0.6);
   margin-bottom: 22px;
 }

@@ -424,7 +424,7 @@
   const paletteSaveBtn = document.getElementById('paletteSaveBtn');
 
   const PALETTE_SIZE = 6;
-  const PALETTE_KEY = 'imagineai.customPalette';
+  const PALETTE_KEY = 'inkmagik.customPalette';
   let activeColor = '#7c5cff';
 
   function selectColor(hex, swatchEl) {
@@ -545,7 +545,7 @@
 
   saveImageBtn.addEventListener('click', () => {
     if (saveImageBtn.disabled) return;
-    const filename = `imagineai-page-${pageManager.currentIndex + 1}.png`;
+    const filename = `inkmagik-page-${pageManager.currentIndex + 1}.png`;
     drawing.toBlob(async (blob) => {
       if (!blob) return;
       // Prefer the native share sheet on Apple touch devices so users can
@@ -554,7 +554,7 @@
         const file = new File([blob], filename, { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
           try {
-            await navigator.share({ files: [file], title: 'ImagineAI drawing' });
+            await navigator.share({ files: [file], title: 'Inkmagik drawing' });
             flashSaved();
             return;
           } catch (err) {
@@ -862,7 +862,7 @@
     if (!renderedPreview.src || downloadBtn.disabled) return;
     const a = document.createElement('a');
     a.href = renderedPreview.src;
-    a.download = 'imagineai-render.png';
+    a.download = 'inkmagik-render.png';
     document.body.appendChild(a);
     a.click();
     // Large data: URIs (multi-MB at High-Res) need a moment for the browser
@@ -916,7 +916,7 @@
   // Persists all 5 pages, the current page, brush, colour, and size to
   // localStorage — saved when the tab is hidden/closed plus a debounced
   // safety-net save after every change — and restored on next visit.
-  const SESSION_KEY = 'imagineai.session';
+  const SESSION_KEY = 'inkmagik.session';
 
   // Compact per-stroke form for storage; points → [x, y, pressure] triples
   // with rounded coords, keeping four full multi-layer pages inside quota.
