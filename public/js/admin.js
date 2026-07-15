@@ -166,6 +166,50 @@
     });
   }
 
+  // Small tables for things that are lists, not magnitudes — a bar chart of
+  // five purchases would say less than just showing the five purchases.
+  function renderTable(container, rows, empty) {
+    container.innerHTML = '';
+    if (!rows || !rows.length) {
+      container.innerHTML = `<p class="chart-empty">${empty}</p>`;
+      return;
+    }
+    rows.forEach((cells) => {
+      const row = document.createElement('div');
+      row.className = 'mini-row';
+      cells.forEach((c, i) => {
+        const el = document.createElement('span');
+        el.className = 'mini-cell' + (i === 0 ? ' first' : '');
+        if (c && typeof c === 'object' && c.tag) {
+          el.classList.add('tag', c.tone || 'neutral');
+          el.textContent = c.tag;
+        } else {
+          el.textContent = c === null || c === undefined || c === '' ? '—' : String(c);
+        }
+        row.appendChild(el);
+      });
+      container.appendChild(row);
+    });
+  }
+
+  // A rate with its two raw numbers, so the percentage is never floating free
+  // of the evidence — 50% of 2 and 50% of 2,000 are very different claims.
+  function healthStat(label, pct, detail, tone) {
+    const el = document.createElement('div');
+    el.className = 'health';
+    const l = document.createElement('span');
+    l.className = 'health-label';
+    l.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'health-value ' + (tone || '');
+    v.textContent = pct;
+    const s = document.createElement('span');
+    s.className = 'health-sub';
+    s.textContent = detail;
+    el.append(l, v, s);
+    return el;
+  }
+
   function render(d) {
     const k = d.kpis;
     const dd = d.deltas || {};
@@ -195,6 +239,78 @@
     renderCols(document.getElementById('dailyCols'), document.getElementById('dailyAxis'), d.daily);
     renderBars(document.getElementById('styleBars'), prettify(d.styles, STYLE_NAMES));
     renderBars(document.getElementById('engineBars'), prettify(d.engines, ENGINE_NAMES));
+
+    renderBars(document.getElementById('sourceBars'), d.sources || []);
+
+    renderTable(
+      document.getElementById('purchaseTable'),
+      (d.recent_purchases || []).map((p) => [p.at, `${p.tokens} tokens`, '$' + p.amount.toFixed(2)]),
+      'No purchases yet.'
+    );
+
+    renderTable(
+      document.getElementById('codeTable'),
+      (d.gift_codes || []).map((c) => [
+        c.code,
+        c.note || '',
+        `${c.tokens} tokens`,
+        `${c.used}/${c.max} used`,
+        { tag: c.status, tone: c.status === 'active' ? 'good' : 'muted' },
+      ]),
+      'No gift codes yet — create one with create_coupon() in the SQL editor.'
+    );
+
+    // ---- health ----
+    const h = d.health || {};
+    const healthRow = document.getElementById('healthRow');
+    healthRow.innerHTML = '';
+
+    // Server-side counts every visit; the client-side event is JS, so blockers
+    // stop some. The gap between them estimates how many block analytics.
+    if (h.server_visits > 0) {
+      const blocked = Math.max(0, 1 - h.client_visits / h.server_visits);
+      healthRow.appendChild(
+        healthStat(
+          'Blocking analytics',
+          Math.round(blocked * 100) + '%',
+          `${compact(h.client_visits)} of ${compact(h.server_visits)} visits reported`,
+          'neutral'
+        )
+      );
+    }
+
+    if (h.checkout_started > 0) {
+      const conv = h.checkout_completed / h.checkout_started;
+      healthRow.appendChild(
+        healthStat(
+          'Checkout abandoned',
+          Math.round((1 - conv) * 100) + '%',
+          `${h.checkout_completed} of ${h.checkout_started} paid`,
+          1 - conv > 0.4 ? 'bad' : 'good'
+        )
+      );
+    }
+
+    (d.speed || []).forEach((s) => {
+      healthRow.appendChild(
+        healthStat(
+          (ENGINE_NAMES[s.label] || s.label) + ' render time',
+          s.value + 's',
+          'average',
+          s.value > 60 ? 'bad' : 'good'
+        )
+      );
+    });
+
+    if (!healthRow.children.length) {
+      healthRow.innerHTML = '<p class="chart-empty">Not enough data yet.</p>';
+    }
+
+    renderTable(
+      document.getElementById('failTable'),
+      (d.failures || []).map((f) => [f.label, `${f.value}×`]),
+      'No failed renders. 🎉'
+    );
 
     document.getElementById('adminFoot').textContent =
       'Updated ' + new Date(d.generated_at).toLocaleString();

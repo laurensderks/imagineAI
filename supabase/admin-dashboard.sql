@@ -124,7 +124,65 @@ begin
                'at', to_char(created_at, 'DD Mon HH24:MI'))
              order by created_at desc)
       from (select * from purchases order by created_at desc limit 5) t
-    ), '[]'::jsonb)
+    ), '[]'::jsonb),
+
+    -- Where visitors come from. '(direct)' = typed the URL, a bookmark, or a
+    -- link from somewhere that strips the referrer (most chat apps do).
+    'sources', coalesce((
+      select jsonb_agg(jsonb_build_object('label', src, 'value', n) order by n desc)
+      from (
+        select coalesce(meta->>'referrer', '(direct)') as src, count(*) as n
+        from events
+        where event = 'page_view' and (meta->>'bot')::boolean is false
+        group by 1 order by n desc limit 8
+      ) t
+    ), '[]'::jsonb),
+
+    'gift_codes', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'code', code,
+               'note', note,
+               'tokens', tokens,
+               'used', redemptions,
+               'max', max_redemptions,
+               'status', case
+                 when expires_at is not null and expires_at < now() then 'expired'
+                 when redemptions >= max_redemptions then 'used up'
+                 else 'active' end)
+             order by created_at desc)
+      from (select * from coupons order by created_at desc limit 8) t
+    ), '[]'::jsonb),
+
+    -- Average seconds per render, by engine. If high-res creeps up, that's a
+    -- UX problem before it's a cost problem.
+    'speed', coalesce((
+      select jsonb_agg(jsonb_build_object('label', eng, 'value', secs) order by secs desc)
+      from (
+        select meta->>'engine' as eng,
+               round(avg((meta->>'ms')::numeric) / 1000.0, 1) as secs
+        from events
+        where event = 'render_completed' and meta->>'ms' is not null
+        group by 1
+      ) t
+    ), '[]'::jsonb),
+
+    'failures', coalesce((
+      select jsonb_agg(jsonb_build_object('label', err, 'value', n) order by n desc)
+      from (
+        select left(coalesce(meta->>'error', 'unknown'), 70) as err, count(*) as n
+        from events where event = 'render_failed'
+        group by 1 order by n desc limit 5
+      ) t
+    ), '[]'::jsonb),
+
+    -- Raw counts the dashboard turns into rates (ad-block %, abandonment %).
+    'health', jsonb_build_object(
+      'server_visits',      (select count(*) from events
+                              where event = 'page_view' and (meta->>'bot')::boolean is false),
+      'client_visits',      (select count(*) from events where event = 'app_opened'),
+      'checkout_started',   (select count(*) from events where event = 'checkout_started'),
+      'checkout_completed', (select count(*) from events where event = 'checkout_completed')
+    )
   ) into result;
 
   return result;

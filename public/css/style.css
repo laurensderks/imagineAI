@@ -579,6 +579,77 @@ svg {
 .cols-axis .col-tick:first-child { text-align: left; }
 .cols-axis .col-tick:last-child { text-align: right; }
 
+/* ---- small tables (lists, not magnitudes) ---- */
+.mini-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.mini-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.mini-row:last-child { border-bottom: none; }
+.mini-cell {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mini-cell.first {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mini-cell.tag {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mini-cell.tag.good {
+  background: rgba(52, 217, 200, 0.14);
+  color: var(--good);
+}
+.mini-cell.tag.muted {
+  background: var(--bg-elev-2);
+  color: var(--text-faint);
+}
+
+/* ---- health stats ---- */
+.health-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.health {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+}
+.health-label { font-size: 11.5px; color: var(--text-faint); }
+.health-value { font-size: 17px; font-weight: 700; color: var(--text); }
+.health-value.good { color: var(--good); }
+.health-value.bad { color: var(--danger); }
+.health-value.neutral { color: var(--text); }
+.health-sub { font-size: 10.5px; color: var(--text-faint); }
+
 .admin-foot {
   margin: 0;
   font-size: 11px;
