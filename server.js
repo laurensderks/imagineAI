@@ -73,7 +73,7 @@ const GALLERY_LIMIT = 5;
 // Save a successful render to the user's gallery: upload the PNG to Storage,
 // record the metadata row, then prune anything past the newest GALLERY_LIMIT.
 // All calls go through the user's own token, so Storage/table RLS applies.
-async function saveToGallery(token, userId, base64Data, style) {
+async function saveToGallery(token, userId, base64Data, style, engine) {
   const authHeaders = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` };
   const path = `${userId}/${crypto.randomUUID()}.png`;
 
@@ -87,13 +87,16 @@ async function saveToGallery(token, userId, base64Data, style) {
   const insert = await fetch(`${SUPABASE_URL}/rest/v1/renders`, {
     method: 'POST',
     headers: { ...authHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify({ user_id: userId, path, style }),
+    body: JSON.stringify({ user_id: userId, path, style, engine }),
   });
   if (!insert.ok) throw new Error(`renders insert failed: ${await insert.text()}`);
 
-  // Anything beyond the newest GALLERY_LIMIT gets removed (file + row).
+  // Past the newest GALLERY_LIMIT we delete the FILE (storage costs money) but
+  // keep the ROW, flagged as pruned. The row is a few bytes and is the only
+  // lasting record that the render happened — deleting it would throw away the
+  // usage history permanently.
   const staleRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/renders?user_id=eq.${userId}&select=id,path` +
+    `${SUPABASE_URL}/rest/v1/renders?user_id=eq.${userId}&pruned=is.false&select=id,path` +
       `&order=created_at.desc&offset=${GALLERY_LIMIT}`,
     { headers: authHeaders }
   );
@@ -108,7 +111,11 @@ async function saveToGallery(token, userId, base64Data, style) {
   });
   await fetch(
     `${SUPABASE_URL}/rest/v1/renders?id=in.(${stale.map((r) => r.id).join(',')})`,
-    { method: 'DELETE', headers: authHeaders }
+    {
+      method: 'PATCH',
+      headers: { ...authHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ pruned: true }),
+    }
   );
 }
 
@@ -155,6 +162,18 @@ function serviceHeaders() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
   return { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+}
+
+// Fire-and-forget analytics. Deliberately not awaited and never throws: losing
+// an analytics row is trivial, breaking someone's render or payment is not.
+// Silently no-ops until the service_role key is configured.
+function logEvent(userId, event, meta) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  fetch(`${SUPABASE_URL}/rest/v1/events`, {
+    method: 'POST',
+    headers: { ...serviceHeaders(), Prefer: 'return=minimal' },
+    body: JSON.stringify({ user_id: userId || null, event, meta: meta || null }),
+  }).catch((err) => console.error('logEvent failed:', err.message));
 }
 
 // Claims the purchase. The Stripe session id is the table's primary key, so a
@@ -232,6 +251,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       try {
         const balance = await creditTokens(userId, tokens);
         console.log(`Credited ${tokens} tokens to ${userId}. New balance: ${balance}`);
+        logEvent(userId, 'checkout_completed', {
+          tokens,
+          amount_cents: session.amount_total,
+          currency: session.currency,
+        });
       } catch (err) {
         // Undo the claim so Stripe's retry can credit them properly.
         await deletePurchase(session.id);
@@ -247,7 +271,102 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 });
 
 app.use(express.json({ limit: '25mb' }));
+
+// Server-side visit logging. This is the only visit count that can't be
+// blocked: the client-side `app_opened` event is JavaScript, so ad blockers and
+// privacy extensions stop a chunk of it. Everyone has to fetch this page from
+// us, so logging it here catches all of them.
+//
+// Records NO IP address and sets NO cookie — just that a visit happened. That
+// keeps it out of GDPR/consent-banner territory entirely. The cost is that we
+// can't tell unique visitors apart, or attribute a visit to a user (the login
+// token lives in localStorage and isn't sent with this request).
+const BOT_UA = /bot|crawler|spider|slurp|headless|monitor|uptime|curl|wget|python-requests|axios|postman|pingdom|lighthouse/i;
+
+app.get('/', (req, res, next) => {
+  const ua = req.headers['user-agent'] || '';
+  let referrer = null;
+  try {
+    if (req.headers.referer) referrer = new URL(req.headers.referer).hostname;
+  } catch (_) {
+    /* malformed referer header — ignore */
+  }
+  // Bots are flagged rather than dropped, so you can filter them out in a query
+  // and still see how much crawler traffic you get.
+  logEvent(null, 'page_view', {
+    bot: BOT_UA.test(ua),
+    mobile: /mobile|iphone|ipad|android/i.test(ua),
+    referrer,
+  });
+  next(); // hand off to express.static, which serves index.html
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Who may see the analytics dashboard. Checked against the email on the
+// verified Supabase session, so knowing the address gets you nothing — you'd
+// have to actually sign in as that Google account.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'laurens.derks1@gmail.com')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+function isAdmin(user) {
+  return !!user && !!user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
+
+// Tells the frontend whether to show the dashboard button at all. Purely
+// cosmetic — /api/analytics re-checks, so hiding the button is not the gate.
+app.get('/api/me', async (req, res) => {
+  const user = await getUserFromToken(bearerToken(req));
+  return res.json({ admin: isAdmin(user) });
+});
+
+app.get('/api/analytics', async (req, res) => {
+  const user = await getUserFromToken(bearerToken(req));
+  if (!isAdmin(user)) {
+    // Same answer whether you're signed out or just not an admin.
+    return res.status(403).json({ error: 'Not authorised.' });
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(501).json({
+      error: 'Analytics needs SUPABASE_SERVICE_ROLE_KEY set on the server.',
+    });
+  }
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_analytics`, {
+      method: 'POST',
+      headers: serviceHeaders(),
+      body: '{}',
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return res.json(await r.json());
+  } catch (err) {
+    console.error('Analytics error:', err.message);
+    return res.status(500).json({
+      error: 'Could not load analytics. Have you run admin-dashboard.sql?',
+    });
+  }
+});
+
+// Events the browser is allowed to report — mainly the anonymous, pre-signup
+// activity the database can't otherwise see. Allowlisted so this endpoint can't
+// be used to write arbitrary junk into your analytics.
+const CLIENT_EVENTS = new Set([
+  'app_opened',      // includes anonymous visitors — your top of funnel
+  'buy_opened',      // saw the packs...
+  'gallery_opened',
+  'drawing_started', // actually drew something, vs just landed
+]);
+
+app.post('/api/event', async (req, res) => {
+  const { event, meta } = req.body || {};
+  if (!CLIENT_EVENTS.has(event)) return res.status(400).json({ error: 'Unknown event.' });
+  // Optional: anonymous visitors have no token, and that's the point.
+  const user = await getUserFromToken(bearerToken(req));
+  logEvent(user && user.id, event, meta);
+  return res.json({ ok: true });
+});
 
 // The packs, so the frontend renders prices from one source of truth.
 app.get('/api/packs', (_req, res) => {
@@ -296,6 +415,14 @@ app.post('/api/checkout', async (req, res) => {
       metadata: { supabase_user_id: user.id, tokens: String(pack.tokens) },
       success_url: `${origin}/?checkout=success`,
       cancel_url: `${origin}/?checkout=cancelled`,
+    });
+
+    // Pairs with checkout_completed in the webhook: the gap between the two is
+    // your checkout abandonment rate.
+    logEvent(user.id, 'checkout_started', {
+      pack: req.body.pack,
+      tokens: pack.tokens,
+      amount_cents: pack.unit_amount,
     });
 
     return res.json({ url: session.url });
@@ -470,6 +597,9 @@ const RENDER_ENGINES = {
 };
 
 app.post('/api/render', async (req, res) => {
+  // The consts below are block-scoped to the try, so the catch can't see them.
+  // Keep what the failure event needs out here.
+  const ctx = {};
   try {
     // Rendering is a paid, signed-in-only feature. Drawing/download stay free
     // and anonymous, but this endpoint requires a valid Supabase session.
@@ -498,12 +628,19 @@ app.post('/api/render', async (req, res) => {
       return res.status(500).json({ error: 'Could not read your token balance. Please try again.' });
     }
     if (balance < cost) {
+      // The single best pricing signal you have: someone wanted a render and
+      // couldn't afford it.
+      logEvent(user.id, 'out_of_tokens', { style, engine, balance, needed: cost });
       return res.status(402).json({
         error: `This render costs ${cost} token${cost > 1 ? 's' : ''}, but you have ${balance}. Top up to keep rendering.`,
         tokens: balance,
         needed: cost,
       });
     }
+
+    Object.assign(ctx, { userId: user.id, style, engine });
+    logEvent(user.id, 'render_started', { style, engine });
+    const startedAt = Date.now();
 
     // Optional free-text guidance from the user, layered on top of the style prompt.
     if (typeof instructions === 'string' && instructions.trim()) {
@@ -544,10 +681,17 @@ app.post('/api/render', async (req, res) => {
     // failed render never costs the user a token.
     const newBalance = await spendTokens(token, cost);
 
+    logEvent(user.id, 'render_completed', {
+      style,
+      engine,
+      cost,
+      ms: Date.now() - startedAt, // how long renders actually take, per engine
+    });
+
     // Save to the user's gallery. Never let a storage problem fail a render the
     // user has already paid for — log it and carry on.
     try {
-      await saveToGallery(token, user.id, rendered.b64_json, style);
+      await saveToGallery(token, user.id, rendered.b64_json, style, engine);
     } catch (err) {
       console.error('Gallery save failed:', err.message);
     }
@@ -562,6 +706,13 @@ app.post('/api/render', async (req, res) => {
       (err && err.error && err.error.message) ||
       (err && err.message) ||
       'Unexpected error while rendering the image.';
+    // Failed renders are free (we only deduct on success), so this is also how
+    // you'd spot a broken engine burning goodwill rather than tokens.
+    logEvent(ctx.userId, 'render_failed', {
+      style: ctx.style,
+      engine: ctx.engine,
+      error: String(message).slice(0, 300),
+    });
     return res.status(502).json({ error: message });
   }
 });

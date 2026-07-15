@@ -39,9 +39,12 @@
     showMessage('Loading your renders…');
     const sb = window.Auth.client;
 
+    // pruned rows are history-only: the row is kept for analytics but the file
+    // has been deleted, so they must never reach the grid.
     const { data: rows, error } = await sb
       .from('renders')
       .select('id, path, style, created_at')
+      .eq('pruned', false)
       .order('created_at', { ascending: false })
       .limit(5);
 

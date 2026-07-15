@@ -12,6 +12,9 @@
   --accent: #7c5cff;
   --accent-grad: linear-gradient(135deg, #7c5cff 0%, #34d9c8 100%);
   --danger: #ff5c72;
+  /* Status colours (reserved — never used as a data hue). Both checked for
+     WCAG AA on the panel surfaces: teal 9.4:1, danger 5.6:1. */
+  --good: #34d9c8;
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -396,6 +399,192 @@ svg {
 }
 .redeem-msg.ok { color: var(--accent-2, #34d9c8); }
 .redeem-msg[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- *
+ * Analytics dashboard (admin)
+ *
+ * Every chart here is one series measuring magnitude, so they all use the
+ * single accent hue — a colour per category would imply an identity that
+ * isn't there. Single series also means no legend; the value rides the tip
+ * of each mark. Text always wears text tokens, never the data colour.
+ * ---------------------------------------------------------------- */
+.admin-card { width: min(880px, 100%); }
+
+.admin-body {
+  padding: 18px 22px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.admin-msg {
+  margin: 0;
+  padding: 32px 0;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-faint);
+}
+.admin-msg[hidden] { display: none; }
+
+.admin-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.admin-content[hidden] { display: none; }
+
+/* ---- KPI tiles ---- */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev-2);
+}
+.kpi-label {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpi-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  /* Proportional figures on purpose: tabular-nums makes a standalone number
+     look loose at display sizes. Tabular is for columns that must align. */
+}
+.kpi-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Status colours, reserved for the delta only — never reused as a data hue.
+   The arrow (▲/▼) carries the direction too, so meaning never rests on colour
+   alone (colourblindness, greyscale printing, forced-colors). */
+.kpi-delta {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.kpi-delta.good { color: var(--good); }
+.kpi-delta.bad { color: var(--danger); }
+.kpi-delta.neutral { color: var(--text-dim); }
+/* The period stays muted: it's a label, not a status. */
+.kpi-delta-vs {
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+/* ---- chart blocks ---- */
+.chart-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chart-empty {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* ---- horizontal bars ---- */
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 104px 1fr 52px;
+  align-items: center;
+  gap: 10px;
+}
+.bar-label {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar-track {
+  height: 18px; /* under the 24px cap; the slot keeps its air */
+  background: var(--bg-elev-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--accent);
+  /* Square at the baseline, 4px rounded at the data end. */
+  border-radius: 0 4px 4px 0;
+  transition: width 0.4s ease;
+}
+.bar-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums; /* a column of numbers — align them */
+}
+
+/* ---- columns (14-day series) ---- */
+.cols {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px; /* the 2px surface gap that separates touching marks */
+  height: 96px;
+  padding-top: 4px;
+}
+.col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.col-fill {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 4px 4px 0 0; /* rounded data-end, square at the baseline */
+  min-height: 2px;
+  transition: height 0.4s ease;
+}
+.col-fill.empty { background: var(--border); }
+
+.cols-axis {
+  display: flex;
+  gap: 2px;
+  border-top: 1px solid var(--border); /* hairline, solid, recessive */
+  padding-top: 6px;
+}
+.cols-axis .col-tick {
+  flex: 1;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  text-align: center;
+  white-space: nowrap;
+}
+.cols-axis .col-tick:first-child { text-align: left; }
+.cols-axis .col-tick:last-child { text-align: right; }
+
+.admin-foot {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: right;
+}
 
 /* ---------------------------------------------------------------- *
  * Toast
