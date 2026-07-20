@@ -35,6 +35,7 @@
       this.sizeInput = panel.querySelector('[data-trace="size"]');
       this.rotInput = panel.querySelector('[data-trace="rotation"]');
       this.lockBtn = panel.querySelector('[data-trace="lock"]');
+      this.finishBtn = panel.querySelector('[data-trace="finish"]');
       this.removeBtn = panel.querySelector('[data-trace="remove"]');
       this.adjustRows = [...panel.querySelectorAll('[data-trace-adjust]')];
 
@@ -71,11 +72,19 @@
       this._syncPanel();
     }
 
-    remove() {
+    // Clear the on-screen trace WITHOUT the "user finished" meaning — used when
+    // switching pages, so it fires no onChange and deletes nothing from storage.
+    clear() {
       this.state = null;
       this.img.hidden = true;
       this.img.removeAttribute('src');
       this._syncPanel();
+    }
+
+    // User is done with this trace (Finish / ✕): clear it and signal onChange so
+    // the app can drop it from the page and from cloud storage.
+    remove() {
+      this.clear();
       this.onChange();
     }
 
@@ -114,6 +123,9 @@
         this.onChange();
       });
       this.removeBtn.addEventListener('click', () => this.remove());
+      // "Finish" = done tracing: drop the reference photo (the drawing stays).
+      // Gives a clear exit from trace mode instead of only the header ✕.
+      if (this.finishBtn) this.finishBtn.addEventListener('click', () => this.remove());
 
       // Drag to move — only while unlocked. Single pointer; two-finger pinch
       // still bubbles to the canvas-wrap zoom handler untouched.
@@ -212,8 +224,11 @@
       this.rotInput.value = Math.round(this.state.rotation);
       const locked = this.state.locked;
       this.adjustRows.forEach((r) => { r.hidden = locked; });
-      this.lockBtn.textContent = locked ? 'Adjust image' : 'Lock & trace';
+      // While tracing, split into "Adjust" (back to positioning) and "Finish"
+      // (leave trace mode). While adjusting, one full-width "Lock & trace".
+      this.lockBtn.textContent = locked ? 'Adjust' : 'Lock & trace';
       this.lockBtn.classList.toggle('locked', locked);
+      if (this.finishBtn) this.finishBtn.hidden = !locked;
     }
   }
 

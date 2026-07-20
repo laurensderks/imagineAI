@@ -246,10 +246,24 @@
   refreshLayers();
 
   // ---- pages (4 independent doodles, switchable at any time) ----------
+  // Each page also keeps its own trace reference photo. The controller only
+  // ever shows one; we stash the outgoing page's trace and load the incoming
+  // one whenever the page changes.
+  const traceByPage = [null, null, null, null];
+  let tracePage = 0; // which page's trace is currently in the controller
+
   const pageManager = new PageManager({
     drawing,
     tabsContainer: document.getElementById('pageTabs'),
-    onPageChange: () => { updateRenderAvailability(); scheduleSave(); },
+    onPageChange: () => {
+      if (pageManager.currentIndex !== tracePage) {
+        traceByPage[tracePage] = traceCtrl.getState(); // stash outgoing page
+        tracePage = pageManager.currentIndex;
+        loadTraceForPage(tracePage);                   // show incoming page
+      }
+      updateRenderAvailability();
+      scheduleSave();
+    },
   });
 
   // ---- trace (load a reference photo and draw over it) ----------------
@@ -261,9 +275,54 @@
     fileInput: document.getElementById('traceFile'),
     openBtn: traceOpenBtn, // hidden while a trace is active to save space
     drawing,
-    onChange: () => { updateRenderAvailability(); updateSaveAvailability(); scheduleSave(); },
+    onChange: () => {
+      updateRenderAvailability(); updateSaveAvailability(); scheduleSave();
+      const st = traceCtrl.getState();
+      traceByPage[tracePage] = st;
+      // Sync this page's trace for signed-in users. A null state means the user
+      // hit Finish/✕, so drop it from cloud storage too.
+      if (window.TraceSync) {
+        if (st) window.TraceSync.push(tracePage, st);
+        else window.TraceSync.remove(tracePage);
+      }
+    },
   });
   traceOpenBtn.addEventListener('click', () => traceCtrl.openPicker());
+
+  // Swap the controller to a given page's trace, or clear it if that page has none.
+  function loadTraceForPage(i) {
+    const st = traceByPage[i];
+    if (st) traceCtrl.restore(st); else traceCtrl.clear();
+  }
+
+  // The trace hint reflects sign-in state: a prompt when signed out, a
+  // reassurance when signed in (fires immediately with the current state).
+  const traceSyncTip = document.getElementById('traceSyncTip');
+  if (traceSyncTip && window.Auth) {
+    window.Auth.onChange((user) => {
+      traceSyncTip.textContent = user
+        ? 'This trace will sync to your other devices.'
+        : 'Sign in to continue this trace on another device.';
+    });
+  }
+
+  // On sign-in, pull the cloud copy of each page's trace — this is the
+  // cross-device load ("placed it on my phone, open on my iPad"). Any trace
+  // placed locally before signing in gets backed up.
+  if (window.Auth) {
+    window.Auth.onChange(async (user) => {
+      if (!user || !window.TraceSync) return;
+      const cloud = await window.TraceSync.pullAll();
+      for (let i = 0; i < 4; i++) {
+        if (cloud[i]) {
+          traceByPage[i] = cloud[i]; // cloud wins on sign-in
+        } else if (traceByPage[i] && String(traceByPage[i].src).startsWith('data:')) {
+          window.TraceSync.push(i, traceByPage[i]);
+        }
+      }
+      loadTraceForPage(tracePage); // refresh the visible page
+    });
+  }
 
   // ---- brush grid -----------------------------------------------------
   const brushGrid = document.getElementById('brushGrid');
@@ -962,6 +1021,7 @@
 
   function saveSession() {
     try {
+      traceByPage[tracePage] = traceCtrl.getState(); // capture the live trace first
       const snap = pageManager.snapshot();
       const data = {
         v: 2,
@@ -977,7 +1037,7 @@
           a: pg.active,
           l: pg.layers.map(compactStrokes),
         })),
-        trace: traceCtrl.getState(), // reference image + geometry, or null
+        traces: traceByPage, // one reference image + geometry per page, or null
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(data));
     } catch (_) { /* storage full or blocked — skip silently */ }
@@ -1029,7 +1089,15 @@
         .find((s) => s.title && s.title.toLowerCase() === data.color.toLowerCase());
       selectColor(data.color, sw || null);
     }
-    if (data.trace) traceCtrl.restore(data.trace);
+    // Per-page traces (v2+). Older sessions had a single global trace — put it
+    // on the page they were last on so it isn't lost.
+    if (Array.isArray(data.traces)) {
+      for (let i = 0; i < 4; i++) traceByPage[i] = data.traces[i] || null;
+    } else if (data.trace) {
+      traceByPage[data.page || 0] = data.trace;
+    }
+    tracePage = pageManager.currentIndex;
+    loadTraceForPage(tracePage);
     if (hasTouch && data.penOnly) setPenOnly(true);
     updateRenderAvailability();
     updateSaveAvailability();

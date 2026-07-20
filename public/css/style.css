@@ -1461,8 +1461,13 @@ input[type="range"]::-moz-range-thumb {
 .trace-row > span { width: 42px; flex-shrink: 0; }
 .trace-row input[type="range"] { flex: 1; }
 
-.trace-lock-btn {
+.trace-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 2px;
+}
+.trace-lock-btn {
+  flex: 1;
   padding: 9px;
   border-radius: var(--radius-sm);
   border: none;
@@ -1479,6 +1484,22 @@ input[type="range"]::-moz-range-thumb {
   color: var(--text);
   border: 1px solid var(--border);
 }
+/* Shown only while tracing: the clear exit from trace mode. */
+.trace-finish-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent-grad);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.trace-finish-btn:hover { opacity: 0.9; }
+/* .trace-finish-btn is a flex item; [hidden] still needs to win over flex. */
+.trace-finish-btn[hidden] { display: none; }
 
 /* ---------------------------------------------------------------- *
  * Style picker

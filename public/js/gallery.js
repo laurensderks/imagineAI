@@ -41,12 +41,23 @@
 
     // pruned rows are history-only: the row is kept for analytics but the file
     // has been deleted, so they must never reach the grid.
-    const { data: rows, error } = await sb
+    let { data: rows, error } = await sb
       .from('renders')
       .select('id, path, style, created_at')
       .eq('pruned', false)
       .order('created_at', { ascending: false })
       .limit(5);
+
+    // The `pruned` column is added by analytics.sql. If that migration hasn't
+    // been run yet the filter errors (42703) — fall back to no filter, since
+    // nothing can be pruned until the column exists anyway.
+    if (error && error.code === '42703') {
+      ({ data: rows, error } = await sb
+        .from('renders')
+        .select('id, path, style, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5));
+    }
 
     if (error) {
       showMessage('Could not load your gallery. Please try again.');
