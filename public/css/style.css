@@ -1115,21 +1115,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 12.5px;
   color: var(--text-dim);
 }
-.palette-save-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  color: var(--text-dim);
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 5px 10px 5px 8px;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-.palette-save-btn svg { width: 13px; height: 13px; }
-.palette-save-btn:hover { color: var(--text); border-color: #3a3d4d; }
+.custom-palette-header { display: flex; }
 
 .save-image-btn {
   width: 100%;
@@ -1193,22 +1179,26 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1;
 }
 
-.custom-color-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12.5px;
-  color: var(--text-dim);
-  margin-top: 2px;
+/* The interactive "+" slot that opens the native colour picker. It holds a
+   transparent native colour input filling the slot, so a tap lands on the real
+   control and the picker anchors here (works on iPad). */
+.swatch.empty.add { cursor: pointer; }
+.swatch.empty.add:hover {
+  transform: scale(1.08);
+  border-style: solid;
+  border-color: var(--accent);
 }
-.custom-color-row input[type="color"] {
-  width: 34px;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: none;
-  cursor: pointer;
+.swatch.empty.add:hover::after { color: var(--text); }
+.palette-add-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
   padding: 0;
+  margin: 0;
+  cursor: pointer;
 }
 
 .instructions-input {

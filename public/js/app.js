@@ -478,9 +478,7 @@
 
   // ---- colour swatches ----------------------------------------------
   const colorSwatches = document.getElementById('colorSwatches');
-  const customColor = document.getElementById('customColor');
   const customPalette = document.getElementById('customPalette');
-  const paletteSaveBtn = document.getElementById('paletteSaveBtn');
 
   const PALETTE_SIZE = 6;
   const PALETTE_KEY = 'inkmagik.customPalette';
@@ -496,7 +494,9 @@
     document.querySelectorAll('#colorSwatches .swatch, #customPalette .swatch')
       .forEach((c) => c.classList.remove('active'));
     if (swatchEl) swatchEl.classList.add('active');
-    customColor.value = hex;
+    // Keep the "+" picker's default in sync with the active colour.
+    const addInput = customPalette.querySelector('.palette-add-input');
+    if (addInput) addInput.value = hex;
     renderBrushPreview();
     scheduleSave();
   }
@@ -509,7 +509,17 @@
     sw.addEventListener('click', () => selectColor(hex, sw));
     colorSwatches.appendChild(sw);
   });
-  customColor.addEventListener('input', () => selectColor(customColor.value, null));
+  // The "+" add slot (rendered in the palette) is a transparent native colour
+  // input. `input` fires repeatedly while dragging, so use it only for a live
+  // preview of the active colour; commit to My palette just once on `change`
+  // (fired when the picker is confirmed) — otherwise every intermediate shade
+  // would overwrite a palette slot. Delegated so it survives palette re-renders.
+  customPalette.addEventListener('input', (e) => {
+    if (e.target.classList.contains('palette-add-input')) selectColor(e.target.value, null);
+  });
+  customPalette.addEventListener('change', (e) => {
+    if (e.target.classList.contains('palette-add-input')) addPickedColor(e.target.value);
+  });
 
   // ---- custom "My palette" (6 saveable slots, persisted to localStorage) ---
   function loadPalette() {
@@ -527,36 +537,46 @@
 
   function renderPalette() {
     customPalette.innerHTML = '';
-    for (let i = 0; i < PALETTE_SIZE; i++) {
-      const hex = paletteColors[i];
+    paletteColors.forEach((hex) => {
       const slot = document.createElement('button');
-      if (hex) {
-        slot.className = 'swatch';
-        slot.style.background = hex;
-        slot.title = hex;
-        slot.addEventListener('click', () => selectColor(hex, slot));
-      } else {
-        slot.className = 'swatch empty';
-        slot.title = 'Save a colour here with the Save button';
-      }
+      slot.className = 'swatch';
+      slot.style.background = hex;
+      slot.title = hex;
+      slot.addEventListener('click', () => selectColor(hex, slot));
       customPalette.appendChild(slot);
-    }
+    });
+    // Trailing "+" slot: a label showing a plus with a transparent native colour
+    // input overlaid, so a tap opens the picker anchored right here (robust on
+    // iPad). Always shown; when the palette is full the newly picked colour
+    // cycle-overwrites the oldest (see addPickedColor).
+    const add = document.createElement('label');
+    add.className = 'swatch empty add';
+    add.title = 'Pick a colour to add to your palette';
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.className = 'palette-add-input';
+    input.value = activeColor;
+    input.setAttribute('aria-label', 'Pick a colour to add to your palette');
+    add.appendChild(input);
+    customPalette.appendChild(add);
   }
 
-  // Save the current colour into the next free slot, or cycle-overwrite the
-  // oldest once all six are full, so the button always does something useful.
-  function saveCurrentColor() {
-    if (paletteColors.length < PALETTE_SIZE) {
-      paletteColors.push(activeColor);
-    } else {
-      paletteColors.shift();
-      paletteColors.push(activeColor);
+  // Add a picked colour to My palette (dedup; cycle-overwrite the oldest once
+  // all six slots are full) and make it the active colour.
+  function addPickedColor(hex) {
+    hex = (hex || '').toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex)) return;
+    if (!paletteColors.includes(hex)) {
+      if (paletteColors.length >= PALETTE_SIZE) paletteColors.shift();
+      paletteColors.push(hex);
+      savePalette(paletteColors);
     }
-    savePalette(paletteColors);
     renderPalette();
+    const match = [...customPalette.querySelectorAll('.swatch')]
+      .reverse().find((s) => s.title && s.title.toLowerCase() === hex);
+    selectColor(hex, match || null);
   }
 
-  paletteSaveBtn.addEventListener('click', saveCurrentColor);
   renderPalette();
 
   // ---- save current page image to the device --------------------------
