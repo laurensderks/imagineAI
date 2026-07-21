@@ -36,9 +36,14 @@ students access to AI as a creative partner.
 ## Deploy flow (the loop we use every time)
 1. Make the change. 2. Verify in the browser preview (start server, drive it, check
 console for errors). 3. Only when it works, **commit + push to GitHub `main`** — this
-auto-deploys to Render at https://imagineai-izvc.onrender.com. 4. Poll the live URL
+auto-deploys to Render. 4. Poll the live URL
 (background `curl … | grep`) to confirm the deploy landed before telling the user.
 GitHub repo: https://github.com/laurensderks/imagineAI
+
+Live URL: **https://inkmagik.app** (canonical, custom domain on Cloudflare DNS →
+Render). The underlying Render service still answers at
+`https://imagineai-izvc.onrender.com` (the CNAME target and cert-verification host);
+`inkmagik.ai` and `inkmagik.com` 301-redirect to `.app` (Cloudflare Redirect Rules).
 
 ## Conventions / gotchas
 - British spelling in UI ("colour", "watercolour").
