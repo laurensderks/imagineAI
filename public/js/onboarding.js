@@ -40,6 +40,8 @@
   let i = 0;
   let els = null;
   let openedPanel = false;
+  let panelScroll = null;   // the left panel's scroll container
+  let startScrollTop = 0;   // where it sat before the tour moved it
 
   whenSplashGone(start);
 
@@ -63,9 +65,15 @@
   function start() {
     if (!document.getElementById('layerList')) return; // nothing to point at
 
+    // Remember the panel's scroll position so we can put it back afterwards —
+    // spotlighting Layers scrolls the panel and would otherwise leave Trace
+    // (the top section) hidden once the tour ends.
+    const panel = document.getElementById('leftPanel');
+    panelScroll = panel && panel.querySelector('.panel-scroll');
+    startScrollTop = panelScroll ? panelScroll.scrollTop : 0;
+
     // On narrow layouts the left panel is off-canvas — open it for the tour.
     if (isMobile()) {
-      const panel = document.getElementById('leftPanel');
       const scrim = document.getElementById('scrim');
       if (panel && !panel.classList.contains('open')) {
         panel.classList.add('open');
@@ -187,6 +195,13 @@
     window.removeEventListener('resize', reposition);
     if (els && els.root) els.root.remove();
     els = null;
+
+    // Put the panel back where it was so the Trace section is visible again.
+    if (panelScroll) {
+      try { panelScroll.scrollTo({ top: startScrollTop, behavior: 'smooth' }); }
+      catch (_) { panelScroll.scrollTop = startScrollTop; }
+    }
+
     if (openedPanel) {
       const panel = document.getElementById('leftPanel');
       const scrim = document.getElementById('scrim');
