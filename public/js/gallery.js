@@ -22,17 +22,32 @@
 
   let currentUrl = null; // signed URL of the image open in the viewer
 
-  function showMessage(text) {
+  // `action` is optional: { label, onClick }. It renders a button under the
+  // message, so the signed-out state can start sign-in right here instead of
+  // sending people back out to the top bar to find the button.
+  function showMessage(text, action) {
     galleryMsg.textContent = text;
     galleryMsg.hidden = !text;
     galleryNote.hidden = !!text; // hide the storage note when there's nothing to show
+    if (!action) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gallery-msg-btn';
+    btn.textContent = action.label;
+    // Bound straight to the handler, not wrapped in anything async: the
+    // sign-in popup has to open inside the tap or iOS Safari blocks it.
+    btn.addEventListener('click', action.onClick);
+    galleryMsg.appendChild(btn);
   }
 
   async function loadGallery() {
     galleryGrid.innerHTML = '';
     const user = window.Auth && window.Auth.getUser();
     if (!user) {
-      showMessage('Sign in to see your gallery.');
+      showMessage('Sign in to see your gallery.', {
+        label: 'Sign in with Google',
+        onClick: () => window.Auth && window.Auth.signInWithGoogle(),
+      });
       return;
     }
 
@@ -186,6 +201,15 @@
   document.getElementById('closeGallery').addEventListener('click', () => {
     galleryOverlay.classList.remove('open');
   });
+
+  // Signing in from the prompt above happens in a popup, so this window never
+  // reloads — without this the gallery would keep showing "Sign in to see your
+  // gallery" to someone who just did exactly that.
+  if (window.Auth && window.Auth.client) {
+    window.Auth.client.auth.onAuthStateChange((_event, session) => {
+      if (session && galleryOverlay.classList.contains('open')) loadGallery();
+    });
+  }
   document.getElementById('closeViewer').addEventListener('click', () => {
     viewerOverlay.classList.remove('open');
   });

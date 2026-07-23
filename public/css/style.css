@@ -1960,6 +1960,24 @@ input[type="range"]::-moz-range-thumb {
 }
 .gallery-msg[hidden] { display: none; }
 
+/* Action button inside the gallery message — currently the signed-out prompt,
+   so people can sign in without hunting for the button in the top bar. */
+.gallery-msg-btn {
+  display: block;
+  margin: 14px auto 0;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.gallery-msg-btn:hover { filter: brightness(1.08); }
+.gallery-msg-btn:active { transform: scale(0.97); }
+
 /* Larger view of one saved render */
 .viewer-card { width: min(720px, 100%); }
 .viewer-body {
