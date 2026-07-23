@@ -276,6 +276,29 @@ svg {
   gap: 16px;
 }
 
+/* Terms/Privacy links — shown at the point of purchase and in About. */
+.buy-legal,
+.about-legal {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-faint);
+  text-align: center;
+}
+.buy-legal a,
+.about-legal a { color: var(--text-dim); text-decoration: underline; }
+.buy-legal a:hover,
+.about-legal a:hover { color: var(--text); }
+.about-legal {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  justify-content: center;
+}
+
 .buy-note {
   margin: 0;
   font-size: 13px;

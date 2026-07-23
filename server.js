@@ -151,8 +151,11 @@ app.use(cors());
 // payment keys configured — the Buy buttons just report "not configured".
 let stripeClient = null;
 function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) return null;
-  if (!stripeClient) stripeClient = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  // Trimmed: a trailing newline pasted into a dashboard env field is invisible
+  // and otherwise breaks auth/signature checks with a very unhelpful error.
+  const key = (process.env.STRIPE_SECRET_KEY || '').trim();
+  if (!key) return null;
+  if (!stripeClient) stripeClient = require('stripe')(key);
   return stripeClient;
 }
 
@@ -218,7 +221,9 @@ async function creditTokens(userId, amount) {
 // raw, unparsed body. Parsing it first would silently break every webhook.
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const stripe = getStripe();
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  // Trimmed for the same reason as the secret key above — Stripe rejects a
+  // signing secret with stray whitespace, which is invisible in a dashboard.
+  const secret = (process.env.STRIPE_WEBHOOK_SECRET || '').trim();
   if (!stripe || !secret) return res.status(501).send('Stripe is not configured.');
 
   let event;
@@ -300,6 +305,11 @@ app.get('/', (req, res, next) => {
   });
   next(); // hand off to express.static, which serves index.html
 });
+
+// Extension-less URLs for the legal pages — these get quoted to Stripe and
+// Google, so they want to look like /terms rather than /terms.html.
+app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'public', 'terms.html')));
+app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, 'public', 'privacy.html')));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
