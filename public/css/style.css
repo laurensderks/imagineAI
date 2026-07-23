@@ -276,6 +276,16 @@ svg {
   gap: 16px;
 }
 
+/* Currency note under the packs. Prices are charged in USD, and most users are
+   Australian, so a bare "$5" would read as AUD. */
+.buy-currency {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-faint);
+  text-align: center;
+}
+
 /* Terms/Privacy links — shown at the point of purchase and in About. */
 .buy-legal,
 .about-legal {

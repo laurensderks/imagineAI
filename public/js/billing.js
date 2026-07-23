@@ -59,7 +59,9 @@
       card.innerHTML =
         `<span class="buy-pack-tokens">${p.tokens}</span>` +
         `<span class="buy-pack-label">tokens</span>` +
-        `<span class="buy-pack-price">$${p.price}</span>`;
+        // "US$" not "$": most of our users are Australian and would otherwise
+        // read a bare $5 as AUD, then be charged ~A$7.60.
+        `<span class="buy-pack-price">US$${p.price}</span>`;
       if (i === list.length - 1) {
         const badge = document.createElement('span');
         badge.className = 'buy-pack-badge';
