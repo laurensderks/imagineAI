@@ -28,7 +28,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_y16rq43HiCYrgfogYoIfZw_5R_KnMu6';
 // better-looking result within reach instead of pushing people to `fast`.
 const RENDER_COST = { fast: 1, quality: 2 };
 
-// Token packs, priced in USD. unit_amount is in cents (Stripe's smallest unit).
+// Token packs, priced in AUD — the buyers are Australian, so charging in their
+// own currency avoids bank conversion fees and "what did this cost me?" on the
+// statement. unit_amount is in cents (Stripe's smallest unit).
 const TOKEN_PACKS = {
   small:  { tokens: 15, unit_amount: 500,  name: '15 tokens' },
   medium: { tokens: 35, unit_amount: 1000, name: '35 tokens' },
@@ -431,7 +433,7 @@ app.post('/api/checkout', async (req, res) => {
         {
           quantity: 1,
           price_data: {
-            currency: 'usd',
+            currency: 'aud',
             unit_amount: pack.unit_amount,
             product_data: { name: `Inkmagik — ${pack.name}` },
           },
