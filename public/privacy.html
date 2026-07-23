@@ -47,9 +47,29 @@
       <li><b>Drawings</b> — saved in your browser on your own device as you work.</li>
       <li><b>Rendered artwork</b> — images produced when you press Render, stored
       in your private gallery.</li>
-      <li><b>Reference photos</b> — if you use the Trace feature while signed in,
-      the photo is stored so you can continue on another device.</li>
+      <li><b>Reference photos</b> — photos you load into the Trace feature. See
+      below for how these are handled.</li>
     </ul>
+
+    <h3>Tracing photos, and how they move between devices</h3>
+    <p>The Trace feature lets you place a photo behind the canvas to draw over.
+    What happens to that photo depends on whether you are signed in:</p>
+    <ul>
+      <li><b>Signed out</b> — the photo <b>never leaves your device</b>. It stays in
+      your browser and we never receive it.</li>
+      <li><b>Signed in</b> — the photo is <b>uploaded to our private storage</b> so
+      the same trace can appear on your other devices. If you start a trace on a
+      computer and then sign in on an iPad, the photo is downloaded there too.</li>
+    </ul>
+    <div class="callout">
+      <p>Uploaded trace photos are held in private storage that only your
+      signed-in account can reach. They are <b>deleted when you press Finish</b> on
+      that trace, or when you remove the image.</p>
+      <p>Because trace photos are often pictures of real people, please only use
+      photos you have the right to use — and don't upload pictures of other people
+      without their permission. Trace photos are <b>never</b> sent to OpenAI: only
+      your drawing is used to make artwork.</p>
+    </div>
 
     <h3>Purchases</h3>
     <p>If you buy tokens, payment is handled entirely by <b>Stripe</b>. Your card
@@ -94,7 +114,9 @@
       the newest five). Once you go past that, the oldest image is deleted
       automatically and <b>permanently</b> — we cannot recover it, so download
       anything you want to keep.</li>
-      <li><b>Reference photos</b> — deleted when you finish tracing.</li>
+      <li><b>Reference photos</b> — if you were signed out, they were never
+      uploaded at all. If you were signed in, they are deleted from our storage
+      when you press Finish or remove the image.</li>
       <li><b>Drawings in progress</b> — stored in your own browser; clearing your
       browser data removes them.</li>
       <li><b>Account and purchase records</b> — kept while your account exists, and
