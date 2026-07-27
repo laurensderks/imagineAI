@@ -147,7 +147,10 @@
       last = parts.length > 1 ? parts[parts.length - 1] : '';
     }
     if (first) return last ? `${first} ${last[0]}.` : first;
-    return user.email || 'Account'; // last resort
+    // Last resort: the local part of the email reads better than the whole
+    // address, and a full address is wide enough to wreck the top bar.
+    if (user.email) return user.email.split('@')[0];
+    return 'Account';
   }
 
   accountBtn.addEventListener('click', (e) => {

@@ -198,6 +198,10 @@ svg {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Needs a bound or the ellipsis never kicks in: the pill just grows with the
+     name and squeezes the rest of the bar. Long names and the email fallback
+     both hit this. The full address is always in the account menu. */
+  max-width: 160px;
 }
 .account-menu {
   position: absolute;
@@ -2265,6 +2269,11 @@ input[type="range"]::-moz-range-thumb {
   .more-chevron { transition: transform 0.2s ease; }
   .topbar.more-open .more-chevron { transform: rotate(180deg); }
   .topbar.more-open #moreToolsBtn { color: var(--accent); }
+
+  /* Tighter still on a phone: at 375px anything past ~110px of pill starts
+     pushing the icons into each other. Keeps enough to show WHO is signed in
+     without letting a long name take the bar apart. */
+  .account-label { max-width: 70px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
