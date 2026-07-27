@@ -160,6 +160,7 @@ svg {
 }
 
 .only-mobile { display: none; }
+.only-portrait { display: none; }
 
 .icon-btn[hidden] { display: none; }
 
@@ -2206,4 +2207,68 @@ input[type="range"]::-moz-range-thumb {
 
   .splash-content h1 { font-size: 30px; }
   .splash-desc { font-size: 14px; }
+}
+
+/* ---------------------------------------------------------------- *
+ * Phone portrait — cascading canvas tools
+ *
+ * Ten controls need ~460px of bar; a phone gives ~375px, so the grid
+ * squeezes them into each other. On portrait phones the centre tool group
+ * is lifted out of the bar and cascades down the right edge instead,
+ * toggled by the chevron. Landscape keeps the normal bar — there's width
+ * for it there.
+ * ---------------------------------------------------------------- */
+@media (max-width: 640px) and (orientation: portrait) {
+  .only-portrait { display: flex; }
+
+  /* The wordmark is the first thing worth losing — the mark still brands it. */
+  .brand-name { display: none; }
+
+  /* Centre column no longer holds anything in flow, so let the two ends
+     take the width they need. */
+  .topbar { grid-template-columns: auto 1fr auto; gap: 8px; }
+
+  .topbar-center {
+    position: fixed;
+    top: 60px;
+    right: 8px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    z-index: 30;
+    pointer-events: none; /* collapsed: never intercept canvas taps */
+  }
+
+  .topbar-center .icon-btn {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.92);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .topbar.more-open .topbar-center { pointer-events: auto; }
+  .topbar.more-open .topbar-center .icon-btn {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The cascade: each button follows the one above it. Only on the way in —
+     collapsing all at once feels quicker to dismiss. */
+  .topbar.more-open .topbar-center .icon-btn:nth-child(1) { transition-delay: 0ms; }
+  .topbar.more-open .topbar-center .icon-btn:nth-child(2) { transition-delay: 35ms; }
+  .topbar.more-open .topbar-center .icon-btn:nth-child(3) { transition-delay: 70ms; }
+  .topbar.more-open .topbar-center .icon-btn:nth-child(4) { transition-delay: 105ms; }
+  .topbar.more-open .topbar-center .icon-btn:nth-child(5) { transition-delay: 140ms; }
+
+  .more-chevron { transition: transform 0.2s ease; }
+  .topbar.more-open .more-chevron { transform: rotate(180deg); }
+  .topbar.more-open #moreToolsBtn { color: var(--accent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar-center .icon-btn,
+  .more-chevron { transition-duration: 0.01ms; }
+  .topbar.more-open .topbar-center .icon-btn { transition-delay: 0ms; }
 }

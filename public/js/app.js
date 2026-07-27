@@ -1003,6 +1003,45 @@
   });
   scrim.addEventListener('click', closePanels);
 
+  // ---- phone portrait: cascading canvas tools --------------------------
+  // The centre tool group is lifted out of the bar by CSS and dropped down the
+  // right edge instead; this just drives the open/closed state.
+  const topbar = document.querySelector('.topbar');
+  const moreToolsBtn = document.getElementById('moreToolsBtn');
+  const topbarCenter = document.querySelector('.topbar-center');
+
+  function setMoreOpen(open) {
+    topbar.classList.toggle('more-open', open);
+    moreToolsBtn.setAttribute('aria-expanded', String(open));
+    moreToolsBtn.setAttribute('aria-label', open ? 'Hide canvas tools' : 'Show canvas tools');
+  }
+
+  moreToolsBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // don't immediately re-close via the outside handler
+    setMoreOpen(!topbar.classList.contains('more-open'));
+  });
+
+  // Tapping a tool that opens something full-screen (gallery) should put the
+  // cascade away; undo/clear/fullscreen are left open so they can be repeated.
+  topbarCenter.addEventListener('click', (e) => {
+    if (e.target.closest('#galleryBtn')) setMoreOpen(false);
+  });
+
+  // Anywhere else — including the canvas — closes it.
+  document.addEventListener('click', (e) => {
+    if (!topbar.classList.contains('more-open')) return;
+    if (e.target.closest('.topbar-center') || e.target.closest('#moreToolsBtn')) return;
+    setMoreOpen(false);
+  });
+
+  // Rotating to landscape restores the normal bar, so drop the open state with it.
+  window.addEventListener('resize', () => {
+    if (topbar.classList.contains('more-open') &&
+        !window.matchMedia('(max-width: 640px) and (orientation: portrait)').matches) {
+      setMoreOpen(false);
+    }
+  });
+
   // ---- session autosave / restore --------------------------------------
   // Persists all 5 pages, the current page, brush, colour, and size to
   // localStorage — saved when the tab is hidden/closed plus a debounced

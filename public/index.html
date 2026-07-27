@@ -63,6 +63,12 @@
     </div>
 
     <div class="topbar-actions">
+      <!-- Phone portrait only: the canvas tools don't fit across the bar, so they
+           cascade down the right edge from here instead. -->
+      <button class="icon-btn only-portrait" id="moreToolsBtn" aria-label="Show canvas tools" aria-expanded="false">
+        <svg class="more-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+
       <button class="icon-btn only-mobile" id="toggleRightPanel" aria-label="Toggle render styles">
         <svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 10l-6.6 1.4L12 18l-1.4-6.6L4 10l6.6-1.4z"/></svg>
       </button>
