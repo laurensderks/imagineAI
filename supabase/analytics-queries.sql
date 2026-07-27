@@ -65,8 +65,18 @@ select date_trunc('day', created_at)::date as day,
 from public.events where event = 'page_view'
 group by 1 order by 1 desc limit 30;
 
--- Where visitors come from (null = typed the URL or came from a private link)
-select coalesce(meta->>'referrer', '(direct)') as source, count(*) as visits
+-- Where visitors come from (null = typed the URL or came from a private link).
+-- Our own hosts count as '(direct)': the .com/.ai/www domains 301 to .app, and
+-- internal navigation reports one of our hosts, so listing them as "referrers"
+-- would bury the external sources this query exists to show.
+select case
+         when meta->>'referrer' is null then '(direct)'
+         when meta->>'referrer' ~* '(^|\.)inkmagik\.(app|com|ai)$' then '(direct)'
+         when meta->>'referrer' ~* '\.onrender\.com$' then '(direct)'
+         when meta->>'referrer' ~* '(^|\.)checkout\.stripe\.com$' then '(direct)'
+         else meta->>'referrer'
+       end as source,
+       count(*) as visits
 from public.events
 where event = 'page_view' and (meta->>'bot')::boolean is false
 group by 1 order by visits desc limit 20;

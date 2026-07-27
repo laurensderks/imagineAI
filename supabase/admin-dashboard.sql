@@ -128,10 +128,24 @@ begin
 
     -- Where visitors come from. '(direct)' = typed the URL, a bookmark, or a
     -- link from somewhere that strips the referrer (most chat apps do).
+    --
+    -- Our OWN domains are folded into '(direct)' rather than listed as referrers:
+    -- inkmagik.com/.ai and www all 301 to inkmagik.app, and internal navigation
+    -- (reloads, the auth popup, returning from Stripe) also reports one of our
+    -- hosts. Left raw, those dominate the chart and tell you nothing — the point
+    -- of this list is EXTERNAL sources. Includes the onrender.com origin and
+    -- checkout.stripe.com, which is just the return leg of our own checkout.
     'sources', coalesce((
       select jsonb_agg(jsonb_build_object('label', src, 'value', n) order by n desc)
       from (
-        select coalesce(meta->>'referrer', '(direct)') as src, count(*) as n
+        select case
+                 when meta->>'referrer' is null then '(direct)'
+                 when meta->>'referrer' ~* '(^|\.)inkmagik\.(app|com|ai)$' then '(direct)'
+                 when meta->>'referrer' ~* '\.onrender\.com$' then '(direct)'
+                 when meta->>'referrer' ~* '(^|\.)checkout\.stripe\.com$' then '(direct)'
+                 else meta->>'referrer'
+               end as src,
+               count(*) as n
         from events
         where event = 'page_view' and (meta->>'bot')::boolean is false
         group by 1 order by n desc limit 8
