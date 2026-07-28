@@ -26,6 +26,9 @@
   --texture-blend: normal;
   --stage-glow: radial-gradient(circle at 30% 20%, rgba(124, 92, 255, 0.06), transparent 45%),
                 radial-gradient(circle at 80% 80%, rgba(52, 217, 200, 0.05), transparent 45%);
+  /* Deliberately NOT themed. The splash sits over dark render photos in every
+     theme, so its gradient text has to stay bright enough to read on them. */
+  --splash-grad: linear-gradient(135deg, #7c5cff 0%, #34d9c8 100%);
 }
 
 /* ---------------------------------------------------------------- *
@@ -2240,13 +2243,29 @@ input[type="range"]::-moz-range-thumb {
   margin: 0;
   text-shadow: 0 2px 24px rgba(0, 0, 0, 0.55);
 }
+/* Same split as the Terms/Privacy header: "Ink" solid, "magik" in gradient.
+   Fixed to the bright pair rather than var(--accent-grad): the splash always
+   sits over dark render photos whatever the theme, and the paper theme's
+   accent is a dark ink violet that goes muddy against them. */
+.splash-wordmark span {
+  background: var(--splash-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* The h1's text-shadow would show straight through glyphs whose fill is
+     transparent — drop-shadow follows the painted gradient instead. */
+  text-shadow: none;
+  filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.55));
+}
+
 .splash-tagline {
   margin: 10px 0 0;
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  background: var(--accent-grad);
+  /* Same reason as the wordmark above — over dark photos in every theme. */
+  background: var(--splash-grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
