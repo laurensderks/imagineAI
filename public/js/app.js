@@ -1003,6 +1003,31 @@
   });
   scrim.addEventListener('click', closePanels);
 
+  // ---- themes ----------------------------------------------------------
+  // The saved theme is already applied by the inline script in index.html;
+  // this only wires the picker and keeps the selected state in sync.
+  const THEME_KEY = 'inkmagik.theme';
+  const themePicker = document.getElementById('themePicker');
+
+  function setTheme(name) {
+    if (name === 'default') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', name);
+    try { localStorage.setItem(THEME_KEY, name); } catch (_) { /* ignore */ }
+    [...themePicker.querySelectorAll('.theme-swatch')].forEach((b) => {
+      b.setAttribute('aria-checked', String(b.dataset.themeValue === name));
+    });
+    // The brush preview is painted to a canvas, so it doesn't inherit the new
+    // token colours the way the CSS-styled chrome does — repaint it.
+    renderBrushPreview();
+  }
+
+  themePicker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.theme-swatch');
+    if (btn) setTheme(btn.dataset.themeValue);
+  });
+
+  setTheme(document.documentElement.getAttribute('data-theme') || 'default');
+
   // ---- phone portrait: cascading canvas tools --------------------------
   // The centre tool group is lifted out of the bar by CSS and dropped down the
   // right edge instead; this just drives the open/closed state.

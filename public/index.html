@@ -11,6 +11,17 @@
 <meta name="apple-mobile-web-app-title" content="Inkmagik" />
 <meta name="theme-color" content="#0e0f13" />
 <link rel="stylesheet" href="css/style.css" />
+<script>
+  // Inline and before the first paint on purpose: setting this from app.js
+  // would render one frame of the default theme first, which reads as a flash
+  // of the wrong colours on every load.
+  (function () {
+    try {
+      var t = localStorage.getItem('inkmagik.theme');
+      if (t === 'board' || t === 'paper') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { /* private mode — default theme is fine */ }
+  })();
+</script>
 </head>
 <body>
 
@@ -207,6 +218,21 @@
             <span>Save image</span>
           </button>
           <p class="save-hint" id="saveHint" hidden>Remove the trace image to save your drawing.</p>
+        </section>
+
+        <section class="panel-section">
+          <h3>Theme</h3>
+          <div class="theme-picker" id="themePicker" role="radiogroup" aria-label="Theme">
+            <button class="theme-swatch th-default" data-theme-value="default" role="radio" aria-checked="true" title="Default">
+              <span class="theme-swatch-name">Default</span>
+            </button>
+            <button class="theme-swatch th-board" data-theme-value="board" role="radio" aria-checked="false" title="Blackboard">
+              <span class="theme-swatch-name">Blackboard</span>
+            </button>
+            <button class="theme-swatch th-paper" data-theme-value="paper" role="radio" aria-checked="false" title="Recycled paper">
+              <span class="theme-swatch-name">Paper</span>
+            </button>
+          </div>
         </section>
 
       </div>

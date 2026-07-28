@@ -20,7 +20,121 @@
   --radius-lg: 20px;
   --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.35);
   --panel-w: 272px;
+  /* Themes layer a generated grain over the chrome. Default has none — the
+     tokens exist so the surface rules below work without a theme selected. */
+  --texture: none;
+  --texture-blend: normal;
+  --stage-glow: radial-gradient(circle at 30% 20%, rgba(124, 92, 255, 0.06), transparent 45%),
+                radial-gradient(circle at 80% 80%, rgba(52, 217, 200, 0.05), transparent 45%);
 }
+
+/* ---------------------------------------------------------------- *
+ * Themes
+ *
+ * Both alternates are classroom materials rather than abstract light and
+ * dark: a board you draw on, and paper you draw on. Texture is generated
+ * with SVG turbulence, so there are no image files to ship, and it is
+ * applied to the chrome only — never over the canvas, where it would
+ * falsify the artwork's colours.
+ * ---------------------------------------------------------------- */
+
+/* Blackboard — green-black, because real boards are. Chalk white is warm
+   and dusty; pure white would read as a screen rather than a surface. */
+html[data-theme="board"] {
+  --bg: #1c221f;
+  --bg-elev-1: #222925;
+  --bg-elev-2: #2a322d;
+  --border: #3a443d;
+  --text: #e6e3d8;
+  --text-dim: #a3ada2;
+  --text-faint: #7d877c;
+  --accent: #a89bff;
+  --accent-grad: linear-gradient(135deg, #a89bff 0%, #7fd6e8 100%);
+  --good: #7fd6e8;
+  --danger: #ff8f9e;
+  --shadow-soft: 0 5px 18px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --stage-glow: none;
+  --texture-blend: soft-light;
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* Recycled paper — warm oatmeal rather than cream, because recycled stock
+   is greyer and flecked. Text is a brown-black ink, never #000, so it
+   reads as printed rather than rendered. */
+html[data-theme="paper"] {
+  --bg: #efe9dc;
+  --bg-elev-1: #f4efe4;
+  --bg-elev-2: #e9e2d3;
+  --border: #d9d1c0;
+  --text: #2b2721;
+  /* Darker than the dark themes' equivalents: muted text that reads fine
+     against a near-black panel is washed out on a warm light one. */
+  --text-dim: #5a5348;
+  --text-faint: #756c5e;
+  --accent: #5d4ad1;
+  --accent-grad: linear-gradient(135deg, #5d4ad1 0%, #2f7f96 100%);
+  --good: #2f7f96;
+  --danger: #b5453f;
+  /* Brown-tinted, not grey — a neutral shadow on a warm ground reads as dirt. */
+  --shadow-soft: 0 5px 16px rgba(90, 74, 48, 0.22), 0 1px 3px rgba(90, 74, 48, 0.16);
+  --stage-glow: none;
+  --texture-blend: multiply;
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23p)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* Grain goes on the chrome surfaces individually rather than as one overlay,
+   so it can never sit on top of the canvas. */
+.topbar,
+.panel {
+  background-image: var(--texture);
+  background-blend-mode: var(--texture-blend);
+}
+
+/* Theme picker — each swatch previews its own ground and accent rather than
+   relying on the label, so the choice reads at a glance. */
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.theme-swatch {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 52px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.theme-swatch:hover { transform: translateY(-1px); }
+.theme-swatch[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.theme-swatch-name {
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-align: left;
+  letter-spacing: 0.01em;
+}
+.theme-swatch::before {
+  content: "";
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+}
+/* Fixed colours on purpose: a swatch must show the theme it switches TO,
+   not the theme currently applied. */
+.th-default { background: #0e0f13; color: #cfd2dd; }
+.th-default::before { background: linear-gradient(135deg, #7c5cff, #34d9c8); }
+.th-board { background: #1c221f; color: #d6d3c8; }
+.th-board::before { background: #a89bff; }
+.th-paper { background: #efe9dc; color: #4a443b; }
+.th-paper::before { background: #5d4ad1; }
 
 * { box-sizing: border-box; }
 
@@ -1294,10 +1408,12 @@ input[type="range"]::-moz-range-thumb {
   overflow: auto;
   touch-action: none;        /* the stage handles its own touch — no browser scroll/exit gesture */
   overscroll-behavior: none;
-  background:
-    radial-gradient(circle at 30% 20%, rgba(124, 92, 255, 0.06), transparent 45%),
-    radial-gradient(circle at 80% 80%, rgba(52, 217, 200, 0.05), transparent 45%),
-    var(--bg);
+  /* Split into colour + image so a theme can swap the grain and the glow
+     independently. Default keeps the purple/teal wash; the material themes
+     drop it (--stage-glow: none) and lay grain down instead. */
+  background-color: var(--bg);
+  background-image: var(--texture), var(--stage-glow);
+  background-blend-mode: var(--texture-blend), normal;
 }
 
 .canvas-wrap {
