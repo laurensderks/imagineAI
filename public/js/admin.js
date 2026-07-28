@@ -216,7 +216,14 @@
     const kpiRow = document.getElementById('kpiRow');
     kpiRow.innerHTML = '';
     kpiRow.append(
-      tile('Visits', compact(k.visits), `${compact(k.bots)} bots filtered`,
+      // Labelled approximate on purpose. Bot detection here is user-agent based,
+      // so it only removes crawlers that admit to being crawlers — anything
+      // spoofing a normal browser still lands in this number, and on a small
+      // site that is most of it. Kept because it is the top of the funnel that
+      // makes Signups/Renders/Revenue meaningful as rates, not because the
+      // absolute figure is trustworthy.
+      tile('Visits (approx.)', compact(k.visits),
+        `${compact(k.bots)} declared bots removed · spoofed bots still counted`,
         delta(dd.visits, true)),
       tile('Signups', compact(k.signups), null,
         delta(dd.signups, true)),
