@@ -672,10 +672,12 @@ app.post('/api/render', async (req, res) => {
     logEvent(user.id, 'render_started', { style, engine });
     const startedAt = Date.now();
 
-    // Optional free-text guidance from the user, layered on top of the style prompt.
-    if (typeof instructions === 'string' && instructions.trim()) {
-      prompt += ` Additional guidance from the artist: ${instructions.trim().slice(0, 500)}`;
-    }
+    // Optional free-text guidance from the user. Held back until after the
+    // moderation check below rather than appended straight onto the prompt —
+    // this box is the one place a user supplies arbitrary text.
+    const guidance = (typeof instructions === 'string' && instructions.trim())
+      ? instructions.trim().slice(0, 500)
+      : '';
 
     const client = getOpenAIClient();
     if (!client) {
@@ -689,6 +691,38 @@ app.post('/api/render', async (req, res) => {
       });
     }
 
+    // Screen the free-text guidance before it reaches the image model. The
+    // Moderation API is free and fast, so this costs nothing and turns what
+    // would be an opaque `moderation_blocked` failure into a clear message —
+    // without spending a render call to find out. The image API screens the
+    // prompt and the drawing itself too; this is the earlier, cheaper gate.
+    if (guidance) {
+      try {
+        const check = await client.moderations.create({
+          model: 'omni-moderation-latest',
+          input: guidance,
+        });
+        if (check.results && check.results[0] && check.results[0].flagged) {
+          const categories = Object.entries(check.results[0].categories || {})
+            .filter(([, hit]) => hit)
+            .map(([name]) => name);
+          logEvent(user.id, 'instructions_blocked', { style, engine, categories });
+          return res.status(400).json({
+            error:
+              'Those instructions were blocked by our content filter. ' +
+              'Please reword them and try again — you have not been charged a token.',
+            moderation: true,
+          });
+        }
+      } catch (err) {
+        // Never let the screening call itself break rendering. The image API
+        // still applies its own moderation, so a failure here is not a bypass.
+        console.error('Moderation pre-check failed (continuing):', err.message);
+      }
+    }
+
+    if (guidance) prompt += ` Additional guidance from the artist: ${guidance}`;
+
     // Strip the "data:image/png;base64," prefix if present and turn it into a Buffer.
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
@@ -699,6 +733,10 @@ app.post('/api/render', async (req, res) => {
     const result = await client.images.edit({
       image: imageFile,
       prompt,
+      // Stated rather than inherited: 'auto' is the default and the stricter of
+      // the two settings ('low' is the permissive one). The users here are
+      // school students, so this must never be loosened by accident.
+      moderation: 'auto',
       ...engineConfig,
     });
 
@@ -743,6 +781,22 @@ app.post('/api/render', async (req, res) => {
       engine: ctx.engine,
       error: String(message).slice(0, 300),
     });
+
+    // OpenAI's own filter rejected the drawing or prompt. Say so plainly rather
+    // than surfacing the raw API error, and log it separately so blocked
+    // attempts are visible without digging through generic failures.
+    const blocked = (err && err.code === 'moderation_blocked') ||
+      /moderation_blocked|safety system|content policy/i.test(String(message));
+    if (blocked) {
+      logEvent(ctx.userId, 'render_blocked', { style: ctx.style, engine: ctx.engine });
+      return res.status(400).json({
+        error:
+          'This drawing was blocked by the content filter and could not be rendered. ' +
+          'You have not been charged a token.',
+        moderation: true,
+      });
+    }
+
     return res.status(502).json({ error: message });
   }
 });
