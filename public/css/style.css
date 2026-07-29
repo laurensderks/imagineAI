@@ -221,13 +221,22 @@ svg {
   height: 20px;
   border-radius: 7px;
   background: url("../img/branding/inkmagik-logo.png") center / cover no-repeat;
-  box-shadow: 0 0 16px rgba(124, 92, 255, 0.55);
 }
 
+/* Same wordmark split as the splash and the Terms/Privacy header: "Ink" in the
+   plain text colour, "magik" in the accent gradient. Uses --accent-grad (not
+   the fixed --splash-grad) so it follows the theme — the top bar sits on the
+   themed chrome, not over the splash photos. */
 .brand-name {
   font-weight: 700;
   font-size: 16px;
   letter-spacing: -0.01em;
+}
+.brand-name span {
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .topbar-actions {
@@ -1766,38 +1775,17 @@ input[type="range"]::-moz-range-thumb {
   font-size: 12px;
   line-height: 1.55;
   color: var(--text);
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
-.style-detail-list {
-  margin: 0 0 10px;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.style-detail-list li {
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: var(--text-dim);
-}
-.style-detail-tone {
+.style-detail-best {
   font-size: 11.5px;
   line-height: 1.5;
-  color: var(--text);
+  color: var(--text-dim);
   margin: 0;
 }
-.style-detail-tone strong {
+.style-detail-best strong {
   color: var(--accent);
   font-weight: 700;
-}
-.style-detail-note {
-  margin: 8px 0 0;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--text-faint);
-  font-style: italic;
 }
 
 .engine-toggle {

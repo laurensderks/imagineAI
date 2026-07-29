@@ -26,6 +26,7 @@
     oil_masters: 'Oil Painting',
     minecraft: 'Pixel',
     fantasy: 'Fantasy',
+    paper_craft: 'Paper Craft',
   };
   const ENGINE_NAMES = { fast: 'Fast', quality: 'High-Res' };
 

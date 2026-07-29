@@ -19,126 +19,49 @@
   const DEFAULT_COLOR_INDEX = 24; // #7c5cff, the purple accent
 
   // Each tile's background image is loaded from img/styles/<id>.jpg.
+  // Keep the copy short and outcome-focused: it tells a student what they'll
+  // get back, not how the render is built. The actual style instructions live
+  // server-side in STYLE_DETAILS and are never shipped to the browser.
   const RENDER_STYLES = [
     {
       id: 'photorealistic', title: 'Photorealistic', desc: 'Lifelike detail & lighting',
-      description: 'Transform the drawing into a polished, high-quality photograph or cinematic still, ' +
-        'with believable lighting, realistic textures, natural proportions, and convincing materials ' +
-        'that make the scene feel genuinely real.',
-      characteristics: [
-        'Realistic anatomy and proportions',
-        'Natural lighting with highlights, shadows, and depth',
-        'Fine details and texture clarity',
-        'Believable materials and surfaces',
-        'Clean edges and high visual fidelity',
-        'Strong sense of realism without looking plastic or uncanny',
-        'Optional subtle cinematic polish, like shallow depth of field or realistic atmosphere',
-      ],
-      tone: 'Crisp, lifelike, detailed, polished, immersive, and visually convincing.',
+      description: 'Your sketch comes back as a believable photograph, with real lighting, textures and depth.',
+      bestFor: 'Portraits, animals, objects, landscapes.',
     },
     {
       id: 'cartoon', title: 'Cartoon', desc: 'Bold, playful & friendly',
-      description: 'Render the drawing as a charming, appealing cartoon with simplified, expressive ' +
-        'forms and a playful, friendly personality — clean shapes, readable silhouettes, and a warm, ' +
-        'joyful tone.',
-      characteristics: [
-        'Simplified but expressive forms',
-        'Rounded shapes and appealing proportions',
-        'Clean outlines or well-defined edges',
-        'Bright, harmonious colours',
-        'Strong facial expressions and personality',
-        'Easy-to-read composition',
-        'Fun, cheerful, approachable mood',
-        'Stylised rather than realistic, but still carefully designed',
-      ],
-      tone: 'Adorable, lively, playful, expressive, polished, and family-friendly.',
+      description: 'Bright, rounded and full of personality, like a frame from a modern animated film.',
+      bestFor: 'Characters, pets, funny scenes.',
     },
     {
       id: 'watercolour', title: 'Watercolour', desc: 'Soft washes & bleeds',
-      description: 'Render the drawing as a delicate watercolour with soft washes, gentle blending, ' +
-        'and translucent layering — graceful, artistic, and emotional, with flowing colours and a ' +
-        'hand-painted feel.',
-      characteristics: [
-        'Soft edges and organic brush diffusion',
-        'Transparent layered colour washes',
-        'Gentle, harmonious colour palette',
-        'Light bleeding and subtle texture from paper or pigment',
-        'Elegant, emotional atmosphere',
-        'Loose but controlled details',
-        'Painterly softness without becoming muddy',
-        'A sense of delicacy, charm, and beauty',
-      ],
-      tone: 'Tender, dreamy, graceful, romantic, airy, and painterly.',
+      description: 'Gentle, see-through colour that bleeds and blends across textured paper.',
+      bestFor: 'Landscapes, flowers, calm and dreamy scenes.',
     },
     {
       id: 'pencil', title: 'Pencil', desc: 'Bold graphite & contrast',
-      description: 'Render the drawing as a contemporary pencil artwork with bold sketch energy, ' +
-        'strong line work, and controlled shading — dynamic, expressive, and full of confidence, ' +
-        'contrast, and attitude.',
-      characteristics: [
-        'Strong, deliberate pencil lines',
-        'Layered shading and tonal variation',
-        'Energetic sketch marks and expressive texture',
-        'Contemporary, stylish composition',
-        'Good use of contrast and negative space',
-        'Visible graphite or pencil-like texture',
-        'Slight roughness used intentionally for character',
-        'Clean enough to feel refined, loose enough to feel alive',
-      ],
-      tone: 'Stylish, raw, expressive, dramatic, contemporary, and slightly rebellious.',
+      description: 'Confident graphite lines and rich shading, like a page from an artist’s sketchbook.',
+      bestFor: 'Portraits, figures, dramatic close-ups.',
     },
     {
       id: 'oil_masters', title: 'Oil Painting', desc: 'Classic chiaroscuro painting',
-      description: 'Render the drawing as a refined classical oil painting in the great Dutch master ' +
-        'tradition — rich, moody, elegant, and timeless, with masterful lighting, dramatic light and ' +
-        'shadow, and painterly depth.',
-      characteristics: [
-        'Dramatic chiaroscuro lighting',
-        'Deep shadows and luminous highlights',
-        'Rich, earthy, sophisticated colour palette',
-        'Detailed rendering of fabrics, skin, objects, and surfaces',
-        'Painterly brushwork with a refined finish',
-        'Strong composition and timeless presence',
-        'Atmospheric realism rather than photographic realism',
-        'Sense of weight, craftsmanship, and classical beauty',
-      ],
-      tone: 'Elegant, moody, classical, rich, atmospheric, and masterfully painted.',
+      description: 'A classical painting with deep shadows, warm light and visible brushwork.',
+      bestFor: 'Portraits, still life, moody interiors.',
     },
     {
       id: 'minecraft', title: 'Pixel', desc: 'Blocky voxel style',
-      description: 'Render the drawing in a blocky, voxel-inspired style like Minecraft, or crisp ' +
-        'pixel art — shapes simplified into cubes, blocks, or visible pixels, while staying readable ' +
-        'and charming.',
-      characteristics: [
-        'Clearly block-based or pixel-based structure',
-        'Simplified geometry and forms',
-        'Limited but effective colour palette',
-        'Strong silhouette readability',
-        'Tiled or pixel-texture logic where appropriate',
-        'Clean, recognisable objects and characters',
-        'Cohesive stylisation rather than random pixelation',
-        'Playful, game-like feel',
-      ],
-      tone: 'Blocky, nostalgic, playful, stylised, readable, and visually clever.',
-      note: 'If using a Minecraft-like result, favour cubic 3D voxel forms. If using pixel art, favour ' +
-        'crisp sprite-like rendering with intentional pixel placement.',
+      description: 'Rebuilt out of chunky blocks and pixels, like a scene from a retro video game.',
+      bestFor: 'Buildings, worlds, game-style characters.',
     },
     {
       id: 'fantasy', title: 'Fantasy', desc: 'Cinematic & atmospheric',
-      description: 'Render the drawing as a lush fantasy artwork with cinematic lighting, magical ' +
-        'atmosphere, and a sense of wonder — immersive and emotionally rich, like an epic fantasy ' +
-        'film or high-end concept art.',
-      characteristics: [
-        'Dramatic, atmospheric lighting',
-        'Soft glow, mist, haze, or magical effects where suitable',
-        'Rich and evocative colour palette',
-        'Sense of depth, scale, and world-building',
-        'Painterly or semi-realistic detail',
-        'Beautiful composition with storytelling energy',
-        'Wonder, mystery, enchantment, or emotional resonance',
-        'Polished fantasy aesthetic without becoming cluttered',
-      ],
-      tone: 'Magical, cinematic, immersive, enchanting, emotional, and visually transportive.',
+      description: 'Epic and glowing with magic, like concept art for a fantasy film.',
+      bestFor: 'Creatures, heroes, magical worlds.',
+    },
+    {
+      id: 'paper_craft', title: 'Paper Craft', desc: 'Torn-paper collage layers',
+      description: 'Built from layers of torn, textured paper and photographed like a handmade storybook scene.',
+      bestFor: 'Storybook scenes, animals, cosy landscapes.',
     },
   ];
 
@@ -805,16 +728,13 @@
         <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
       </span>`;
 
-    const characteristics = style.characteristics.map((c) => `<li>${c}</li>`).join('');
     const detailWrap = document.createElement('div');
     detailWrap.className = 'style-detail-wrap';
     detailWrap.innerHTML = `
       <div class="style-detail-inner">
         <div class="style-detail-content">
           <p class="style-detail-desc">${style.description}</p>
-          <ul class="style-detail-list">${characteristics}</ul>
-          <p class="style-detail-tone"><strong>Tone:</strong> ${style.tone}</p>
-          ${style.note ? `<p class="style-detail-note">${style.note}</p>` : ''}
+          <p class="style-detail-best"><strong>Best for:</strong> ${style.bestFor}</p>
         </div>
       </div>`;
 

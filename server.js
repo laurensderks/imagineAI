@@ -602,9 +602,67 @@ const STYLE_DETAILS = {
     ],
     tone: 'Magical, cinematic, immersive, enchanting, emotional, and visually transportive.',
   },
+  paper_craft: {
+    // A hand-written style lock: the wording below is tuned as a whole and is
+    // sent to the image model verbatim rather than reassembled from parts.
+    fullPrompt: [
+      'The overall image should feel whimsical, magical, handcrafted and richly illustrative, ' +
+        'like a premium children’s storybook scene constructed as a museum-quality paper collage.',
+      'Render the entire scene as an elaborate, handcrafted torn-paper collage assembled from many ' +
+        'individually torn pieces of thick, fibrous, recycled art paper. The finished artwork should ' +
+        'resemble a physical paper-relief diorama that has been carefully photographed, not a flat ' +
+        'digital illustration.',
+      'Every visible element must be made from paper: characters, skin, hair, clothing, buildings, ' +
+        'trees, clouds, stars, ground, water, mountains, shadows and small decorative objects. Do not ' +
+        'introduce realistic materials such as actual wood, stone, cloth, metal, leaves or human skin. ' +
+        'Instead, convincingly imitate those objects using overlapping scraps of coloured paper.',
+      'MATERIAL AND TEXTURE:\n' +
+        'Use visibly tactile handmade paper with prominent natural fibres, subtle wrinkles, compressed ' +
+        'areas, small creases, irregular thickness and slightly faded colour variations. Every piece ' +
+        'should have rough, torn, deckled edges rather than smooth machine-cut outlines. Show occasional ' +
+        'curled corners, folded ridges and raised fragments.\n' +
+        'The paper should appear thick enough to cast tiny physical shadows onto the layers underneath ' +
+        'it. Include narrow dark seams between overlapping scraps so the construction of the collage ' +
+        'remains clearly visible. Avoid clean vector edges, perfectly smooth gradients or digitally ' +
+        'painted surfaces.',
+      'PAPER CONSTRUCTION:\n' +
+        'Construct large forms from many smaller overlapping pieces rather than using one smooth ' +
+        'silhouette. Build faces from carefully arranged angular scraps in several related skin tones. ' +
+        'Form noses, brows, cheekbones, eyelids and wrinkles through layered paper planes and shallow ' +
+        'relief.\n' +
+        'Create hair, fur, feathers and beards from numerous narrow, tapered, individually torn strips. ' +
+        'Create clothing from long overlapping strips and irregular fabric-like paper fragments, with ' +
+        'folds suggested through changes in paper direction, colour and height.\n' +
+        'Construct buildings from hundreds of small paper pieces. Represent stone walls with uneven ' +
+        'rectangular scraps, tiled roofs with overlapping pointed fragments, wooden doors with layered ' +
+        'brown paper and windows with translucent-looking amber paper.',
+      'DETAIL LEVEL:\n' +
+        'Extremely detailed, high-resolution, tactile and handcrafted. Preserve individual paper fibres, ' +
+        'torn edges, overlaps, folds and shallow cast shadows even in small objects.\n' +
+        'The scene must remain clearly recognisable as real layered paper craft at first glance. It must ' +
+        'not resemble ordinary digital painting with a paper-texture filter.\n' +
+        'Add or include small decorative paper details that reward closer inspection.',
+      'TEXT:\n' +
+        'Do not include written words, labels, signage, captions, logos or watermarks unless exact text ' +
+        'is explicitly requested. When text is requested, render only the supplied wording on a separate ' +
+        'piece of torn paper.',
+      'AVOID:\n' +
+        'Smooth vector illustration. Flat cut-paper silhouettes with no relief. Origami. ' +
+        'Papier-mâché. Felt, fabric or embroidery. Claymation or plasticine. Wood carving. ' +
+        'Painted cardboard. Glossy plastic. Photorealistic human skin. Realistic vegetation mixed with ' +
+        'paper elements. Uniformly sized paper fragments. Perfectly straight computer-cut edges. ' +
+        'Airbrushed gradients. Excessive blur. Artificial HDR. Plastic-looking 3D CGI. Generic digital ' +
+        'fantasy painting. Visible frames, crafting tools, hands or workspace.',
+    ].join('\n\n'),
+  },
 };
 
 function buildStylePrompt(detail) {
+  // Styles that ship a hand-written style lock are sent as-is; the rest are
+  // assembled from their description / characteristics / tone.
+  if (detail.fullPrompt) {
+    return `${detail.fullPrompt}\n\nPreserve the original composition and subject placement from the original sketch.`;
+  }
   const parts = [
     detail.description,
     `Characteristics of a good result: ${detail.characteristics.join('; ')}.`,
