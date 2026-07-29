@@ -10,9 +10,19 @@
 -- 1) Private bucket for the reference photos. Files at <user-id>/<page>.jpg —
 --    a deterministic path per page, so replacing overwrites and there are never
 --    more than 4 files per user.
-insert into storage.buckets (id, name, public)
-values ('traces', 'traces', false)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('traces', 'traces', false, 10485760, array['image/png','image/jpeg','image/webp'])
 on conflict (id) do nothing;
+
+-- Stated explicitly as well, because the insert above does nothing when the
+-- bucket already exists. These limits are the ONLY size/type control on trace
+-- photos: the browser uploads them straight to Storage, so our server never
+-- sees the bytes and can't check them. Storage enforces both itself.
+update storage.buckets
+   set public = false,
+       file_size_limit = 10485760, -- 10 MB
+       allowed_mime_types = array['image/png','image/jpeg','image/webp']
+ where id = 'traces';
 
 -- 2) One row per (user, page) holding the geometry — where the photo sits, how
 --    big, rotation, fade, and whether it's locked. The image itself is in
@@ -32,43 +42,43 @@ alter table public.page_traces enable row level security;
 
 drop policy if exists "read own traces" on public.page_traces;
 create policy "read own traces" on public.page_traces
-  for select using (auth.uid() = user_id);
+  for select to authenticated using (auth.uid() = user_id);
 
 drop policy if exists "insert own traces" on public.page_traces;
 create policy "insert own traces" on public.page_traces
-  for insert with check (auth.uid() = user_id);
+  for insert to authenticated with check (auth.uid() = user_id);
 
 drop policy if exists "update own traces" on public.page_traces;
 create policy "update own traces" on public.page_traces
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "delete own traces" on public.page_traces;
 create policy "delete own traces" on public.page_traces
-  for delete using (auth.uid() = user_id);
+  for delete to authenticated using (auth.uid() = user_id);
 
 -- 4) Storage RLS: a user may only touch files inside their own <user-id>/
 --    folder in the traces bucket. select + insert + update + delete, because
 --    replacing a page's photo is an upsert (upload with overwrite).
 drop policy if exists "read own trace files" on storage.objects;
 create policy "read own trace files" on storage.objects
-  for select using (
+  for select to authenticated using (
     bucket_id = 'traces' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
 drop policy if exists "insert own trace files" on storage.objects;
 create policy "insert own trace files" on storage.objects
-  for insert with check (
+  for insert to authenticated with check (
     bucket_id = 'traces' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
 drop policy if exists "update own trace files" on storage.objects;
 create policy "update own trace files" on storage.objects
-  for update using (
+  for update to authenticated using (
     bucket_id = 'traces' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
 drop policy if exists "delete own trace files" on storage.objects;
 create policy "delete own trace files" on storage.objects
-  for delete using (
+  for delete to authenticated using (
     bucket_id = 'traces' and (storage.foldername(name))[1] = auth.uid()::text
   );

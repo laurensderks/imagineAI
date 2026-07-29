@@ -9,7 +9,10 @@
  * signed URLs rather than public links.
  */
 (function () {
-  const SIGNED_URL_TTL = 60 * 60; // seconds
+  // Short enough that a URL copied out of the network tab or a shared screen
+  // stops working quickly, long enough to browse the gallery without tiles
+  // expiring under you. Re-opening the gallery mints fresh URLs.
+  const SIGNED_URL_TTL = 15 * 60; // seconds
 
   const galleryOverlay = document.getElementById('galleryOverlay');
   const galleryGrid = document.getElementById('galleryGrid');

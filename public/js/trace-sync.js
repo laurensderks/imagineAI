@@ -12,7 +12,9 @@
 (function () {
   const BUCKET = 'traces';
   const TABLE = 'page_traces';
-  const SIGNED_TTL = 60 * 60; // seconds
+  // Only needs to survive long enough for the browser to fetch the image —
+  // once it's loaded into the overlay, expiry doesn't affect it.
+  const SIGNED_TTL = 15 * 60; // seconds
   const PUSH_DEBOUNCE = 800;  // geometry drags fire fast; batch them
 
   // The image src already known to be in the cloud for each page, so a geometry

@@ -31,32 +31,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    // Minimal page that only exists to complete the OAuth popup. Creating the
-    // client auto-detects the ?code in the URL and exchanges it for a session
-    // (stored in localStorage, shared with the app on the same origin).
-    const sb = window.supabase.createClient(
-      'https://phcbyouccxunyavzzwrf.supabase.co',
-      'sb_publishable_y16rq43HiCYrgfogYoIfZw_5R_KnMu6'
-    );
-
-    function finish() {
-      try {
-        if (window.opener) {
-          window.opener.postMessage('inkmagik-auth-done', window.location.origin);
-        }
-      } catch (_) { /* ignore */ }
-      window.close();
-      // If the browser refused to close the window, send the user back to the app.
-      setTimeout(() => { window.location.replace('/'); }, 400);
-    }
-
-    sb.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') finish();
-    });
-
-    // Fallback in case the session is already established by the time we listen.
-    sb.auth.getSession().then(({ data }) => { if (data.session) finish(); });
-  </script>
+  <script src="js/auth-callback.js"></script>
 </body>
 </html>

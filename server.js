@@ -11,10 +11,18 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Render (and Cloudflare in front of it) terminate TLS and forward the real
+// client IP in X-Forwarded-For. Trust exactly one hop so req.ip is the caller
+// rather than the proxy — `true` would let anyone spoof their IP by sending
+// their own X-Forwarded-For header, which would defeat the rate limits below.
+app.set('trust proxy', 1);
 
 // Supabase project — used to verify that whoever calls /api/render is a real
 // signed-in user. The publishable key is public (it ships in the browser too);
@@ -142,8 +150,121 @@ async function spendTokens(token, amount) {
   }
 }
 
-// Drawings can be reasonably large base64 PNGs, so raise the body size limit.
-app.use(cors());
+// ---------------------------------------------------------------------------
+// Security middleware
+// ---------------------------------------------------------------------------
+
+// The Supabase session (and therefore the user's whole account) lives in
+// localStorage, so any injected script could walk off with it. This CSP is the
+// main defence: scripts may only come from our own origin and the Supabase CDN,
+// which means an injected <script> or a data: URL simply never executes.
+//
+// There are deliberately NO inline scripts left in public/*.html — the theme
+// boot and the auth callback were moved into js/ files so this can stay
+// 'unsafe-inline'-free. If you ever add an inline <script>, it will silently
+// stop running until you move it out to a file too.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+        // Style stays permissive: auth-callback.html has a <style> block, and
+        // CSS injection needs HTML injection first — which the script rules
+        // above already block from doing anything interesting.
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        // data:/blob: cover the canvas exports and the trace overlay; the
+        // Supabase host serves signed gallery/trace URLs.
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://*.supabase.co'],
+        connectSrc: ["'self'", 'https://*.supabase.co'],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    // Off: we pull the Supabase client from jsDelivr, and COEP would require
+    // that CDN to opt in with CORP headers before the browser allowed it.
+    crossOriginEmbedderPolicy: false,
+    // Helmet defaults this to 'same-origin', which severs window.opener as soon
+    // as a popup navigates cross-origin — that would break Google sign-in,
+    // where the popup goes to accounts.google.com and then postMessages back to
+    // the app. '…-allow-popups' keeps the isolation for everything else while
+    // letting the windows we open ourselves still talk to us.
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  })
+);
+
+// Only our own front ends may call the API from a browser. The app itself is
+// same-origin so this changes nothing for real users; it just stops a random
+// page on another domain from scripting the API with a token it managed to get
+// hold of. Server-to-server callers (Stripe's webhook) send no Origin and are
+// unaffected.
+const ALLOWED_ORIGINS = [
+  'https://inkmagik.app',
+  'https://www.inkmagik.app',
+  'https://imagineai-izvc.onrender.com',
+  `http://localhost:${PORT}`,
+  'http://localhost:3000',
+];
+
+app.use(
+  cors({
+    origin(origin, cb) {
+      // No Origin header at all = curl, a native app, or a server-to-server
+      // call. Those aren't browser requests, so CORS has nothing to protect.
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      return cb(null, false);
+    },
+  })
+);
+
+// Rate limits. Keyed by user id where we have one, because schools sit behind a
+// single shared public IP — an IP-keyed limit would let one enthusiastic
+// student lock out a whole classroom. Anonymous callers fall back to their IP
+// (via ipKeyGenerator, which normalises IPv6 into a /64 subnet).
+function userOrIpKey(req) {
+  // The token is verified properly inside each handler; here it only decides
+  // which bucket to count against, so an unverified read of `sub` is fine.
+  const token = bearerToken(req);
+  if (token) {
+    try {
+      const payload = JSON.parse(
+        Buffer.from(token.split('.')[1], 'base64url').toString('utf8')
+      );
+      if (payload && payload.sub) return `u:${payload.sub}`;
+    } catch (_) {
+      /* malformed token — fall through to the IP key */
+    }
+  }
+  return ipKeyGenerator(req.ip);
+}
+
+const makeLimiter = (windowMs, max, message) =>
+  rateLimit({
+    windowMs,
+    limit: max,
+    keyGenerator: userOrIpKey,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: message },
+  });
+
+// Renders are already gated by the token balance, so this is a runaway-loop
+// guard rather than an abuse control: nobody legitimately renders 40 times an
+// hour, and a stuck client shouldn't be able to burn an account's balance.
+const renderLimiter = makeLimiter(60 * 60 * 1000, 40,
+  'That is a lot of renders in one hour. Please wait a little and try again.');
+
+// Checkout sessions are free to create but hit Stripe every time.
+const checkoutLimiter = makeLimiter(60 * 60 * 1000, 20,
+  'Too many checkout attempts. Please wait a few minutes.');
+
+// The only unauthenticated write in the app, so it gets the tightest guard.
+// Generous enough for a full classroom arriving at once on one school IP.
+const eventLimiter = makeLimiter(60 * 1000, 120, 'Too many requests.');
 
 // ---------------------------------------------------------------------------
 // Stripe
@@ -389,12 +510,21 @@ const CLIENT_EVENTS = new Set([
   'drawing_started', // actually drew something, vs just landed
 ]);
 
-app.post('/api/event', async (req, res) => {
+app.post('/api/event', eventLimiter, async (req, res) => {
   const { event, meta } = req.body || {};
   if (!CLIENT_EVENTS.has(event)) return res.status(400).json({ error: 'Unknown event.' });
+  // The meta blob is arbitrary client-supplied JSON that gets written with the
+  // service_role key (RLS doesn't apply), so cap it — analytics rows should be
+  // a few hundred bytes, not a place to park megabytes of anything.
+  let safeMeta = meta;
+  if (safeMeta !== null && safeMeta !== undefined) {
+    if (typeof safeMeta !== 'object' || JSON.stringify(safeMeta).length > 1000) {
+      safeMeta = null;
+    }
+  }
   // Optional: anonymous visitors have no token, and that's the point.
   const user = await getUserFromToken(bearerToken(req));
-  logEvent(user && user.id, event, meta);
+  logEvent(user && user.id, event, safeMeta);
   return res.json({ ok: true });
 });
 
@@ -409,7 +539,7 @@ app.get('/api/packs', (_req, res) => {
   );
 });
 
-app.post('/api/checkout', async (req, res) => {
+app.post('/api/checkout', checkoutLimiter, async (req, res) => {
   try {
     const stripe = getStripe();
     if (!stripe) {
@@ -684,7 +814,7 @@ const RENDER_ENGINES = {
   quality: { model: 'gpt-image-2', size: '2048x2048', quality: 'high' },
 };
 
-app.post('/api/render', async (req, res) => {
+app.post('/api/render', renderLimiter, async (req, res) => {
   // The consts below are block-scoped to the try, so the catch can't see them.
   // Keep what the failure event needs out here.
   const ctx = {};

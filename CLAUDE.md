@@ -45,6 +45,24 @@ Render). The underlying Render service still answers at
 `https://imagineai-izvc.onrender.com` (the CNAME target and cert-verification host);
 `inkmagik.ai` and `inkmagik.com` 301-redirect to `.app` (Cloudflare Redirect Rules).
 
+## Security model (don't weaken these without thinking)
+- **CSP has no `'unsafe-inline'` for scripts.** There must be no inline `<script>` in
+  `public/*.html` — an inline block will silently never run. Put it in `public/js/`
+  (that's why `theme-boot.js` and `auth-callback.js` exist).
+- **COOP is `same-origin-allow-popups`**, not helmet's default `same-origin`, because
+  the Google sign-in popup has to postMessage back to the app.
+- CORS is an allowlist (`ALLOWED_ORIGINS` in `server.js`) — add new front-end hosts there.
+- Rate limits key on **user id first, IP second**: schools share one public IP, so an
+  IP-only limit would lock out a whole classroom.
+- Buckets (`renders`, `traces`) are private, 10 MB, images only. The trace upload goes
+  browser → Storage without touching our server, so the **bucket limits are the only
+  size/type check** — never relax them.
+- Never put the `service_role` key anywhere the browser can see. It's server-only, for
+  the Stripe webhook, analytics writes and the admin dashboard.
+- After changing any RLS policy or bucket setting, run the attacker harness with two
+  real sessions: `TOKEN_A=… TOKEN_B=… npm run security:rls` (see the file header for how
+  to grab tokens). It must be 18/18.
+
 ## Conventions / gotchas
 - British spelling in UI ("colour", "watercolour").
 - Elements with `display:flex` etc. ignore the `[hidden]` attribute — add an explicit

@@ -11,17 +11,10 @@
 <meta name="apple-mobile-web-app-title" content="Inkmagik" />
 <meta name="theme-color" content="#0e0f13" />
 <link rel="stylesheet" href="css/style.css" />
-<script>
-  // Inline and before the first paint on purpose: setting this from app.js
-  // would render one frame of the default theme first, which reads as a flash
-  // of the wrong colours on every load.
-  (function () {
-    try {
-      var t = localStorage.getItem('inkmagik.theme');
-      if (t === 'board' || t === 'paper') document.documentElement.setAttribute('data-theme', t);
-    } catch (e) { /* private mode — default theme is fine */ }
-  })();
-</script>
+<!-- Blocking, in <head>, before the first paint on purpose: setting the theme
+     from app.js would render one frame of the default colours first, which
+     reads as a flash on every load. -->
+<script src="js/theme-boot.js"></script>
 </head>
 <body>
 
