@@ -1689,10 +1689,16 @@ input[type="range"]::-moz-range-thumb {
   content: "";
   position: absolute;
   inset: 0;
+  /* Fully clear for the first quarter so the tile's subject — which always sits
+     hard left — is seen undimmed. The 62% stop is chosen so the darkness where
+     the label actually sits matches what the old ramp gave (~0.61 at 70%
+     across); without it, starting later would leave the text on a lighter
+     ground than before. */
   background: linear-gradient(90deg,
-    rgba(10, 11, 15, 0.1) 0%,
-    rgba(10, 11, 15, 0.45) 45%,
-    rgba(10, 11, 15, 0.82) 100%);
+    rgba(10, 11, 15, 0) 0%,
+    rgba(10, 11, 15, 0) 25%,
+    rgba(10, 11, 15, 0.55) 62%,
+    rgba(10, 11, 15, 0.85) 100%);
   transition: background 0.15s ease;
 }
 .style-card:hover { border-color: #3a3d4d; transform: translateY(-1px); }
