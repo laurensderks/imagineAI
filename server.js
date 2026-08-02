@@ -696,24 +696,59 @@ const STYLE_DETAILS = {
     tone: 'Elegant, moody, classical, rich, atmospheric, and masterfully painted.',
   },
   minecraft: {
-    description:
-      'Render the drawing in a blocky, voxel-inspired style reminiscent of Minecraft, or as crisp ' +
-      'pixel art depending on the subject. Shapes should be intentionally simplified into cubes, ' +
-      'blocks, or visible pixels, while still preserving readability, charm, and visual coherence.',
-    characteristics: [
-      'clearly block-based or pixel-based structure',
-      'simplified geometry and forms',
-      'limited but effective colour palette',
-      'strong silhouette readability',
-      'tiled or pixel-texture logic where appropriate',
-      'clean, recognisable objects and characters',
-      'cohesive stylisation rather than random pixelation',
-      'a playful, game-like feel',
-    ],
-    tone: 'Blocky, nostalgic, playful, stylised, readable, and visually clever.',
-    extraNote:
-      'If using a Minecraft-like result, favour cubic 3D voxel forms. If using pixel art, favour ' +
-      'crisp sprite-like rendering with intentional pixel placement.',
+    // A hand-written style lock: the wording below is tuned as a whole and is
+    // sent to the image model verbatim rather than reassembled from parts.
+    // Deliberately steers AWAY from Minecraft-style voxels despite the id —
+    // the id is kept because it is persisted in saved pages and analytics.
+    fullPrompt: [
+      'Create a richly detailed hand-crafted pixel art illustration with the visual language of a ' +
+        'high-quality 16-bit / 32-bit fantasy adventure game.',
+      'PIXEL ART STYLE:\n' +
+        'Use clearly visible, intentionally placed square pixels throughout the entire image. Build ' +
+        'shapes from clusters of pixels rather than smooth digital brush strokes. Keep edges crisp and ' +
+        'stepped, with absolutely no anti-aliasing, vector-smooth curves, painterly blending, or ' +
+        'photorealistic textures.\n' +
+        'The artwork should feel deliberately illustrated pixel-by-pixel rather than like a photograph ' +
+        'that has simply been pixelated.',
+      'VISUAL CHARACTER:\n' +
+        'Create an image that feels atmospheric, immersive, and handcrafted. Use strong simplified ' +
+        'silhouettes for major forms, then add smaller pixel clusters to suggest texture and detail.\n' +
+        'Use bold, chunky pixel clusters; irregular organic outlines; stepped diagonal edges; selective ' +
+        'single-pixel details; restrained pixel dithering; small contrasting pixel highlights; layered ' +
+        'colour bands rather than smooth gradients; and simplified but expressive forms.',
+      'LIGHTING:\n' +
+        'Use cinematic lighting translated into pixel art. Light and shadow should be represented using ' +
+        'distinct stepped bands of tone rather than soft gradients. Add occasional tiny bright pixels ' +
+        'along illuminated edges to create sparkling highlights.',
+      'DEPTH AND ATMOSPHERE:\n' +
+        'Create a strong sense of depth using clearly separated layers. Foreground — largest, darkest ' +
+        'and most detailed pixel shapes. Middle ground — medium-sized forms with moderate detail. ' +
+        'Background — smaller shapes, reduced contrast and simpler pixel clusters. Far distance — ' +
+        'softened silhouettes fading into atmospheric haze. Use overlapping forms to exaggerate depth ' +
+        'and scale.',
+      'CLOUDS:\n' +
+        'If clouds are present, render them as large sculptural pixel formations. Construct them from ' +
+        'overlapping blocky clusters with clearly defined light-facing and shadow-facing areas.',
+      'ENVIRONMENT DETAIL:\n' +
+        'Natural elements should be represented through clusters of coloured pixels rather than ' +
+        'individually rendered fine detail. Surfaces and textures should be suggested through ' +
+        'intentional pixel placement, not realistic rendering. Water, if present, should use broken ' +
+        'reflections, stepped highlights, and banded pixel patterns rather than smooth blending.',
+      'ARCHITECTURE, IF PRESENT:\n' +
+        'Any buildings or constructed elements should have strong readable silhouettes, simple ' +
+        'geometric structure, and detail suggested with small pixel clusters rather than precise ' +
+        'rendering.',
+      'PIXEL SCALE:\n' +
+        'Use moderately fine pixel art: enough resolution for intricate scenery and atmospheric ' +
+        'lighting, while every pixel remains visibly intentional. Avoid extremely large Minecraft-like ' +
+        'voxels and avoid tiny modern high-resolution digital painting disguised with a pixel filter.',
+      'The final image should resemble a lovingly hand-pixelled environment from an ambitious fantasy ' +
+        'adventure game: atmospheric, nostalgic, intricate, cinematic, and clearly handmade.',
+      'IMPORTANT: This must be genuine pixel art. Do not create a smooth illustration and apply a ' +
+        'pixelation effect afterward. Every contour, shadow, highlight, texture and surface must be ' +
+        'constructed from discrete hard-edged pixel clusters. No anti-aliasing, no smooth gradients, ' +
+        'no soft airbrush edges, and no photorealism.',
+    ].join('\n\n'),
   },
   fantasy: {
     description:

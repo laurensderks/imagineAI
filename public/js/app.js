@@ -49,9 +49,9 @@
       bestFor: 'Portraits, still life, moody interiors.',
     },
     {
-      id: 'minecraft', title: 'Pixel', desc: 'Blocky voxel style',
-      description: 'Rebuilt out of chunky blocks and pixels, like a scene from a retro video game.',
-      bestFor: 'Buildings, worlds, game-style characters.',
+      id: 'minecraft', title: 'Pixel Art', desc: 'Hand-pixelled 16-bit scenes',
+      description: 'Rebuilt pixel by pixel, like scenery from a classic 16-bit adventure game.',
+      bestFor: 'Landscapes, buildings, game-style worlds.',
     },
     {
       id: 'fantasy', title: 'Fantasy', desc: 'Cinematic & atmospheric',
