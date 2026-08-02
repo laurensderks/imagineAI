@@ -1,55 +1,86 @@
 /**
  * splash.js
  *
- * Welcome overlay shown on load: cross-dissolves through the render-style
- * images (one every 3s, looping) behind the intro text, until the user taps
- * "Start creating" (or presses Enter/Esc). Runs standalone before app.js.
+ * Welcome overlay shown on load. The point it makes is the product's whole
+ * premise: a real sketch on the left, what Inkmagik turned it into on the
+ * right, cycling through the styles — so a visitor understands in two seconds
+ * that the input is a drawing, not a typed prompt.
  *
- * Each slide is shown twice, in sync: a sharp, centred "contain" copy (the
- * whole artwork, never cropped) over a blurred, enlarged "cover" copy that
- * fills the viewport behind it. Both layers fade together on every tick.
+ * The sketch is fixed; only the render tile changes. Each style also tints an
+ * ambient blurred wash behind everything, reusing the same (cached) image.
+ *
+ * Images are loaded lazily — all nine together are ~800 KB, which is a poor
+ * trade for a screen most people dismiss in a few seconds. Only the first is
+ * fetched up front; the rest are pulled in one step ahead of being shown.
  */
 
 (function () {
   const splash = document.getElementById('splash');
   if (!splash) return;
-  const bg = document.getElementById('splashBg');
-  const fg = document.getElementById('splashFg');
 
-  const SLIDES = [
-    'realistic', 'cartoon', 'water', 'pencil',
-    'oil', 'minecraft', 'fantasy',
-  ].map((id) => `img/splash/splash_${id}.webp`);
+  const render = document.getElementById('revealRender');
+  const glow = document.getElementById('splashGlow');
+  const styleLabel = document.getElementById('revealStyle');
+  if (!render || !glow || !styleLabel) return;
 
-  // Shuffle so the opening image varies between visits.
-  for (let i = SLIDES.length - 1; i > 0; i--) {
+  const STYLES = [
+    { file: 'photo', name: 'Photorealistic' },
+    { file: 'cartoon', name: 'Cartoon' },
+    { file: 'watercolour', name: 'Watercolour' },
+    { file: 'pencil', name: 'Pencil' },
+    { file: 'oil', name: 'Oil Painting' },
+    { file: 'pixel', name: 'Pixel Art' },
+    { file: 'fantasy', name: 'Fantasy' },
+    { file: 'papercraft', name: 'Paper Craft' },
+  ];
+
+  // Shuffle so the opening style varies between visits.
+  for (let i = STYLES.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [SLIDES[i], SLIDES[j]] = [SLIDES[j], SLIDES[i]];
+    [STYLES[i], STYLES[j]] = [STYLES[j], STYLES[i]];
   }
 
-  // One stacked layer per image in each container; the ".show" one is opaque,
-  // the rest fade to 0, so advancing the active layer produces a cross-dissolve.
-  function buildLayers(container, cls) {
-    return SLIDES.map((src, i) => {
-      const layer = document.createElement('div');
-      layer.className = cls;
-      layer.style.backgroundImage = `url("${src}")`;
-      if (i === 0) layer.classList.add('show');
-      container.appendChild(layer);
-      return layer;
-    });
+  const url = (s) => `img/splash/${s.file}.webp`;
+
+  // One empty layer per style in each container; filling in the background
+  // image is what actually triggers the download, so it is deferred.
+  const renderLayers = [];
+  const glowLayers = [];
+  STYLES.forEach(() => {
+    const r = document.createElement('div');
+    render.appendChild(r);
+    renderLayers.push(r);
+    const g = document.createElement('div');
+    glow.appendChild(g);
+    glowLayers.push(g);
+  });
+
+  const loaded = new Set();
+  function ensureLoaded(i) {
+    if (loaded.has(i)) return;
+    loaded.add(i);
+    const src = url(STYLES[i]);
+    renderLayers[i].style.backgroundImage = `url("${src}")`;
+    glowLayers[i].style.backgroundImage = `url("${src}")`;
   }
-  const bgLayers = buildLayers(bg, 'splash-layer');    // blurred fill
-  const fgLayers = buildLayers(fg, 'splash-fg-layer'); // sharp, centred
 
   let idx = 0;
+  ensureLoaded(0);
+  renderLayers[0].classList.add('show');
+  glowLayers[0].classList.add('show');
+  styleLabel.textContent = STYLES[0].name;
+  ensureLoaded(1); // one ahead, so the first transition is never a blank tile
+
   const timer = setInterval(() => {
-    bgLayers[idx].classList.remove('show');
-    fgLayers[idx].classList.remove('show');
-    idx = (idx + 1) % SLIDES.length;
-    bgLayers[idx].classList.add('show'); // both fade in together
-    fgLayers[idx].classList.add('show');
-  }, 3000);
+    renderLayers[idx].classList.remove('show');
+    glowLayers[idx].classList.remove('show');
+    idx = (idx + 1) % STYLES.length;
+    ensureLoaded(idx);
+    renderLayers[idx].classList.add('show');
+    glowLayers[idx].classList.add('show');
+    styleLabel.textContent = STYLES[idx].name;
+    ensureLoaded((idx + 1) % STYLES.length); // stay one ahead
+  }, 3200);
 
   let dismissed = false;
   function dismiss() {

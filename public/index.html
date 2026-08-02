@@ -20,14 +20,28 @@
 
 <!-- Welcome splash: cross-dissolving render-style images + intro -->
 <div class="splash" id="splash" role="dialog" aria-label="Welcome to Inkmagik">
-  <div class="splash-bg" id="splashBg"><!-- blurred fill layers added by splash.js --></div>
-  <div class="splash-fg" id="splashFg"><!-- sharp centred layers added by splash.js --></div>
+  <div class="splash-glow" id="splashGlow"><!-- blurred copy of the current render --></div>
+
+  <!-- The point of the splash: a real sketch beside what it became. -->
+  <div class="reveal">
+    <figure class="reveal-item">
+      <div class="reveal-tile reveal-sketch"></div>
+      <figcaption class="reveal-cap">You drew</figcaption>
+    </figure>
+    <span class="reveal-arrow" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+    </span>
+    <figure class="reveal-item">
+      <div class="reveal-tile" id="revealRender"><!-- style layers added by splash.js --></div>
+      <figcaption class="reveal-cap">Inkmagik made <b id="revealStyle">Photorealistic</b></figcaption>
+    </figure>
+  </div>
+
   <div class="splash-content">
-    <span class="splash-mark"></span>
     <h1>Welcome to <span class="splash-wordmark">Ink<span>magik</span></span></h1>
     <p class="splash-tagline">Draw. Style. Render.</p>
-    <p class="splash-desc">Sketch anything, choose an artistic style, and watch AI transform your drawing into finished art.</p>
-    <button class="splash-btn" id="splashEnter">Make some magik
+    <p class="splash-desc">Sketch anything, choose an artistic style, and watch AI turn your drawing into finished art.</p>
+    <button class="splash-btn" id="splashEnter">Make some magik</button>
   </div>
 </div>
 
